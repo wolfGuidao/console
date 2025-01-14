@@ -20,13 +20,13 @@ import (
 	"time"
 
 	"github.com/minio/console/pkg/auth/utils"
-	"github.com/minio/pkg/env"
+	"github.com/minio/pkg/v3/env"
 )
 
 // GetConsoleSTSDuration returns the default session duration for the STS requested tokens (defaults to 12h)
 func GetConsoleSTSDuration() time.Duration {
 	duration, err := time.ParseDuration(env.Get(ConsoleSTSDuration, "12h"))
-	if err != nil {
+	if err != nil || duration <= 0 {
 		duration = 12 * time.Hour
 	}
 	return duration

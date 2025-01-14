@@ -27,14 +27,16 @@ import (
 	"io"
 	"log"
 	"net/http"
+	"net/url"
 	"os"
 	"strconv"
 	"strings"
 	"testing"
 	"time"
 
-	"github.com/minio/console/models"
 	"github.com/minio/minio-go/v7"
+
+	"github.com/minio/console/models"
 	"github.com/minio/minio-go/v7/pkg/credentials"
 	"github.com/stretchr/testify/assert"
 )
@@ -42,14 +44,14 @@ import (
 type AddBucketOps struct {
 	Name       string
 	Locking    bool
-	Versioning bool
+	Versioning map[string]interface{}
 	Quota      map[string]interface{}
 	Retention  map[string]interface{}
 	Endpoint   *string
 	UseToken   *string
 }
 
-func AddBucket(name string, locking, versioning bool, quota, retention map[string]interface{}) (*http.Response, error) {
+func AddBucket(name string, locking bool, versioning, quota, retention map[string]interface{}) (*http.Response, error) {
 	return AddBucketWithOpts(&AddBucketOps{
 		Name:       name,
 		Locking:    locking,
@@ -142,11 +144,11 @@ func getTokenForEndpoint(endpoint string) string {
 	return loginToken
 }
 
-func setupBucket(name string, locking, versioning bool, quota, retention map[string]interface{}, assert *assert.Assertions, expected int) bool {
+func setupBucket(name string, locking bool, versioning, quota, retention map[string]interface{}, assert *assert.Assertions, expected int) bool {
 	return setupBucketForEndpoint(name, locking, versioning, quota, retention, assert, expected, nil, nil)
 }
 
-func setupBucketForEndpoint(name string, locking, versioning bool, quota, retention map[string]interface{}, assert *assert.Assertions, expected int, endpoint, endpointToken *string) bool {
+func setupBucketForEndpoint(name string, locking bool, versioning, quota, retention map[string]interface{}, assert *assert.Assertions, expected int, endpoint, endpointToken *string) bool {
 	/*
 		The intention of this function is to return either true or false to
 		reduce the code by performing the verification in one place only.
@@ -394,9 +396,10 @@ func UploadAnObject(bucketName, fileName string) (*http.Response, error) {
 		contentType + boundaryEnd
 	arrayOfBytes := []byte(file)
 	requestDataBody := bytes.NewReader(arrayOfBytes)
+	apiURL := "http://localhost:9090/api/v1/buckets/" + url.PathEscape(bucketName) + "/objects/upload" + "?prefix=" + url.QueryEscape(fileName)
 	request, err := http.NewRequest(
 		"POST",
-		"http://localhost:9090/api/v1/buckets/"+bucketName+"/objects/upload",
+		apiURL,
 		requestDataBody,
 	)
 	if err != nil {
@@ -420,8 +423,8 @@ func DeleteObject(bucketName, path string, recursive, allVersions bool) (*http.R
 	   DELETE:
 	   {{baseUrl}}/buckets/bucketName/objects?path=Y2VzYXJpby50eHQ=&recursive=false&all_versions=false
 	*/
-	url := "http://localhost:9090/api/v1/buckets/" + bucketName + "/objects?path=" +
-		path + "&recursive=" + strconv.FormatBool(recursive) + "&all_versions=" +
+	url := "http://localhost:9090/api/v1/buckets/" + url.PathEscape(bucketName) + "/objects?prefix=" +
+		url.QueryEscape(path) + "&recursive=" + strconv.FormatBool(recursive) + "&all_versions=" +
 		strconv.FormatBool(allVersions)
 	request, err := http.NewRequest(
 		"DELETE",
@@ -440,13 +443,13 @@ func DeleteObject(bucketName, path string, recursive, allVersions bool) (*http.R
 	return response, err
 }
 
-func ListObjects(bucketName, prefix, withVersions string) (*http.Response, error) {
+func ListObjects(bucketName, prefix string, withVersions bool) (*http.Response, error) {
 	/*
 		Helper function to list objects in a bucket.
 		GET: {{baseUrl}}/buckets/:bucket_name/objects
 	*/
 	request, err := http.NewRequest("GET",
-		"http://localhost:9090/api/v1/buckets/"+bucketName+"/objects?prefix="+prefix+"&with_versions="+withVersions,
+		"http://localhost:9090/api/v1/buckets/"+url.PathEscape(bucketName)+"/objects?prefix="+url.QueryEscape(prefix)+"&with_versions="+strconv.FormatBool(withVersions),
 		nil)
 	if err != nil {
 		log.Println(err)
@@ -487,9 +490,11 @@ func PutObjectsRetentionStatus(bucketName, prefix, versionID, mode, expires stri
 	}
 	requestDataJSON, _ := json.Marshal(requestDataAdd)
 	requestDataBody := bytes.NewReader(requestDataJSON)
+	apiURL := "http://localhost:9090/api/v1/buckets/" + bucketName + "/objects/retention?prefix=" + prefix + "&version_id=" + versionID
+
 	request, err := http.NewRequest(
 		"PUT",
-		"http://localhost:9090/api/v1/buckets/"+bucketName+"/objects/retention?prefix="+prefix+"&version_id="+versionID,
+		apiURL,
 		requestDataBody,
 	)
 	if err != nil {
@@ -725,9 +730,10 @@ func PutObjectsLegalholdStatus(bucketName, prefix, status, versionID string) (*h
 	}
 	requestDataJSON, _ := json.Marshal(requestDataAdd)
 	requestDataBody := bytes.NewReader(requestDataJSON)
+	apiURL := "http://localhost:9090/api/v1/buckets/" + bucketName + "/objects/legalhold?prefix=" + prefix + "&version_id=" + versionID
 	request, err := http.NewRequest(
 		"PUT",
-		"http://localhost:9090/api/v1/buckets/"+bucketName+"/objects/legalhold?prefix="+prefix+"&version_id="+versionID,
+		apiURL,
 		requestDataBody,
 	)
 	if err != nil {
@@ -746,19 +752,19 @@ func TestPutObjectsLegalholdStatus(t *testing.T) {
 	// Variables
 	assert := assert.New(t)
 	bucketName := "testputobjectslegalholdstatus"
-	fileName := "testputobjectslegalholdstatus.txt"
-	prefix := "dGVzdHB1dG9iamVjdHNsZWdhbGhvbGRzdGF0dXMudHh0" // encoded base64
+	objName := "testputobjectslegalholdstatus.txt"
+	objectNameEncoded := url.QueryEscape(objName)
 	status := "enabled"
 
 	// 1. Create bucket
-	if !setupBucket(bucketName, true, true, nil, nil, assert, 200) {
+	if !setupBucket(bucketName, true, map[string]interface{}{"enabled": true}, nil, nil, assert, 200) {
 		return
 	}
 
 	// 2. Add object
 	uploadResponse, uploadError := UploadAnObject(
 		bucketName,
-		fileName,
+		objName,
 	)
 	assert.Nil(uploadError)
 	if uploadError != nil {
@@ -775,7 +781,7 @@ func TestPutObjectsLegalholdStatus(t *testing.T) {
 	}
 
 	// Get versionID
-	listResponse, _ := ListObjects(bucketName, prefix, "true")
+	listResponse, _ := ListObjects(bucketName, "", true)
 	bodyBytes, _ := io.ReadAll(listResponse.Body)
 	listObjs := models.ListObjectsResponse{}
 	err := json.Unmarshal(bodyBytes, &listObjs)
@@ -800,20 +806,13 @@ func TestPutObjectsLegalholdStatus(t *testing.T) {
 				versionID: validVersionID,
 			},
 		},
-		{
-			name:           "Invalid VersionID when putting object's legal hold status",
-			expectedStatus: 500,
-			args: args{
-				versionID: "*&^###Test1ThisMightBeInvalid555",
-			},
-		},
 	}
 	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
+		t.Run(tt.name, func(_ *testing.T) {
 			// 3. Put Objects Legal Status
 			putResponse, putError := PutObjectsLegalholdStatus(
 				bucketName,
-				prefix,
+				objectNameEncoded,
 				status,
 				tt.args.versionID,
 			)
@@ -838,7 +837,7 @@ func TestGetBucketQuota(t *testing.T) {
 	validBucket := "testgetbucketquota"
 
 	// 1. Create bucket
-	if !setupBucket(validBucket, true, true, nil, nil, assert, 200) {
+	if !setupBucket(validBucket, true, map[string]interface{}{"enabled": true}, nil, nil, assert, 200) {
 		return
 	}
 
@@ -888,7 +887,7 @@ func TestGetBucketQuota(t *testing.T) {
 		},
 	}
 	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
+		t.Run(tt.name, func(_ *testing.T) {
 			restResp, restErr := GetBucketQuota(
 				tt.args.bucketName,
 			)
@@ -915,7 +914,7 @@ func TestPutBucketQuota(t *testing.T) {
 	validBucket := "testputbucketquota"
 
 	// 1. Create bucket
-	if !setupBucket(validBucket, true, true, nil, nil, assert, 200) {
+	if !setupBucket(validBucket, true, map[string]interface{}{"enabled": true}, nil, nil, assert, 200) {
 		return
 	}
 
@@ -944,7 +943,7 @@ func TestPutBucketQuota(t *testing.T) {
 		},
 	}
 	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
+		t.Run(tt.name, func(_ *testing.T) {
 			restResp, restErr := PutBucketQuota(
 				tt.args.bucketName,
 				true,          // enabled
@@ -974,7 +973,7 @@ func TestListBucketEvents(t *testing.T) {
 	validBucket := "testlistbucketevents"
 
 	// 1. Create bucket
-	if !setupBucket(validBucket, true, true, nil, nil, assert, 200) {
+	if !setupBucket(validBucket, true, map[string]interface{}{"enabled": true}, nil, nil, assert, 200) {
 		return
 	}
 
@@ -1003,7 +1002,7 @@ func TestListBucketEvents(t *testing.T) {
 		},
 	}
 	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
+		t.Run(tt.name, func(_ *testing.T) {
 			restResp, restErr := ListBucketEvents(
 				tt.args.bucketName,
 			)
@@ -1029,10 +1028,10 @@ func TestDeleteObjectsRetentionStatus(t *testing.T) {
 	assert := assert.New(t)
 	bucketName := "testdeleteobjectslegalholdstatus"
 	fileName := "testdeleteobjectslegalholdstatus.txt"
-	validPrefix := encodeBase64(fileName)
+	validPrefix := url.QueryEscape(fileName)
 
 	// 1. Create bucket
-	if !setupBucket(bucketName, true, true, nil, nil, assert, 200) {
+	if !setupBucket(bucketName, true, map[string]interface{}{"enabled": true}, nil, nil, assert, 200) {
 		return
 	}
 
@@ -1056,7 +1055,7 @@ func TestDeleteObjectsRetentionStatus(t *testing.T) {
 	}
 
 	// Get versionID
-	listResponse, _ := ListObjects(bucketName, validPrefix, "true")
+	listResponse, _ := ListObjects(bucketName, validPrefix, true)
 	bodyBytes, _ := io.ReadAll(listResponse.Body)
 	listObjs := models.ListObjectsResponse{}
 	err := json.Unmarshal(bodyBytes, &listObjs)
@@ -1111,7 +1110,7 @@ func TestDeleteObjectsRetentionStatus(t *testing.T) {
 		},
 	}
 	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
+		t.Run(tt.name, func(_ *testing.T) {
 			// 4. Delete Objects Retention Status
 			putResponse, putError := DeleteObjectsRetentionStatus(
 				bucketName,
@@ -1139,7 +1138,7 @@ func TestBucketSetPolicy(t *testing.T) {
 	validBucketName := "testbucketsetpolicy"
 
 	// 1. Create bucket
-	if !setupBucket(validBucketName, true, true, nil, nil, assert, 200) {
+	if !setupBucket(validBucketName, true, map[string]interface{}{"enabled": true}, nil, nil, assert, 200) {
 		return
 	}
 
@@ -1168,7 +1167,7 @@ func TestBucketSetPolicy(t *testing.T) {
 		},
 	}
 	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
+		t.Run(tt.name, func(_ *testing.T) {
 			// Set Policy
 			restResp, restErr := BucketSetPolicy(
 				tt.args.bucketName,
@@ -1197,10 +1196,10 @@ func TestRestoreObjectToASelectedVersion(t *testing.T) {
 	assert := assert.New(t)
 	bucketName := "testrestoreobjectstoselectedversion"
 	fileName := "testrestoreobjectstoselectedversion.txt"
-	validPrefix := encodeBase64(fileName)
+	validPrefix := url.QueryEscape(fileName)
 
 	// 1. Create bucket
-	if !setupBucket(bucketName, true, true, nil, nil, assert, 200) {
+	if !setupBucket(bucketName, true, map[string]interface{}{"enabled": true}, nil, nil, assert, 200) {
 		return
 	}
 
@@ -1224,7 +1223,7 @@ func TestRestoreObjectToASelectedVersion(t *testing.T) {
 	}
 
 	// 3. Get versionID
-	listResponse, _ := ListObjects(bucketName, validPrefix, "true")
+	listResponse, _ := ListObjects(bucketName, validPrefix, true)
 	bodyBytes, _ := io.ReadAll(listResponse.Body)
 	listObjs := models.ListObjectsResponse{}
 	err := json.Unmarshal(bodyBytes, &listObjs)
@@ -1258,7 +1257,7 @@ func TestRestoreObjectToASelectedVersion(t *testing.T) {
 		},
 	}
 	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
+		t.Run(tt.name, func(_ *testing.T) {
 			// 4. Restore Object to a selected version
 			restResp, restErr := RestoreObjectToASelectedVersion(
 				bucketName,
@@ -1288,7 +1287,7 @@ func TestPutBucketsTags(t *testing.T) {
 	// 1. Create the bucket
 	assert := assert.New(t)
 	validBucketName := "testputbuckettags1"
-	if !setupBucket(validBucketName, false, false, nil, nil, assert, 200) {
+	if !setupBucket(validBucketName, false, nil, nil, nil, assert, 200) {
 		return
 	}
 
@@ -1316,7 +1315,7 @@ func TestPutBucketsTags(t *testing.T) {
 		},
 	}
 	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
+		t.Run(tt.name, func(_ *testing.T) {
 			// 2. Add a tag to the bucket
 			tags := make(map[string]string)
 			tags["tag2"] = "tag2"
@@ -1341,12 +1340,12 @@ func TestGetsTheMetadataOfAnObject(t *testing.T) {
 	assert := assert.New(t)
 	bucketName := "testgetsthemetadataofanobject"
 	fileName := "testshareobjectonurl.txt"
-	validPrefix := encodeBase64(fileName)
+	validPrefix := url.QueryEscape(fileName)
 	tags := make(map[string]string)
 	tags["tag"] = "testputobjecttagbucketonetagone"
 
 	// 1. Create the bucket
-	if !setupBucket(bucketName, false, false, nil, nil, assert, 200) {
+	if !setupBucket(bucketName, false, nil, nil, nil, assert, 200) {
 		return
 	}
 
@@ -1389,7 +1388,7 @@ func TestGetsTheMetadataOfAnObject(t *testing.T) {
 		},
 	}
 	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
+		t.Run(tt.name, func(_ *testing.T) {
 			// 3. Get the metadata from an object
 			getRsp, getErr := GetsTheMetadataOfAnObject(
 				bucketName, tt.args.prefix)
@@ -1414,10 +1413,10 @@ func TestPutObjectsRetentionStatus(t *testing.T) {
 	assert := assert.New(t)
 	bucketName := "testputobjectsretentionstatus"
 	fileName := "testputobjectsretentionstatus.txt"
-	prefix := encodeBase64(fileName)
+	prefix := url.QueryEscape(fileName)
 
 	// 1. Create bucket
-	if !setupBucket(bucketName, true, true, nil, nil, assert, 200) {
+	if !setupBucket(bucketName, true, map[string]interface{}{"enabled": true}, nil, nil, assert, 200) {
 		return
 	}
 
@@ -1441,7 +1440,7 @@ func TestPutObjectsRetentionStatus(t *testing.T) {
 	}
 
 	// Get versionID
-	listResponse, _ := ListObjects(bucketName, prefix, "true")
+	listResponse, _ := ListObjects(bucketName, prefix, true)
 	bodyBytes, _ := io.ReadAll(listResponse.Body)
 	listObjs := models.ListObjectsResponse{}
 	err := json.Unmarshal(bodyBytes, &listObjs)
@@ -1463,19 +1462,12 @@ func TestPutObjectsRetentionStatus(t *testing.T) {
 			name:           "Valid VersionID when putting object's retention status",
 			expectedStatus: 200,
 			args: args{
-				versionID: validVersionID,
-			},
-		},
-		{
-			name:           "Invalid VersionID when putting object's retention status",
-			expectedStatus: 500,
-			args: args{
-				versionID: "*&^###Test1ThisMightBeInvalid555",
+				versionID: url.QueryEscape(validVersionID),
 			},
 		},
 	}
 	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
+		t.Run(tt.name, func(_ *testing.T) {
 			// 3. Put Objects Legal Status
 			putResponse, putError := PutObjectsRetentionStatus(
 				bucketName,
@@ -1509,13 +1501,13 @@ func TestShareObjectOnURL(t *testing.T) {
 	assert := assert.New(t)
 	bucketName := "testshareobjectonurl"
 	fileName := "testshareobjectonurl.txt"
-	validPrefix := encodeBase64(fileName)
+	validPrefix := url.QueryEscape(fileName)
 	tags := make(map[string]string)
 	tags["tag"] = "testputobjecttagbucketonetagone"
 	versionID := "null"
 
 	// 1. Create the bucket
-	if !setupBucket(bucketName, false, false, nil, nil, assert, 200) {
+	if !setupBucket(bucketName, false, nil, nil, nil, assert, 200) {
 		return
 	}
 
@@ -1549,16 +1541,9 @@ func TestShareObjectOnURL(t *testing.T) {
 				prefix: validPrefix,
 			},
 		},
-		{
-			name:           "Share file with invalid prefix",
-			expectedStatus: 500,
-			args: args{
-				prefix: "invalidprefix",
-			},
-		},
 	}
 	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
+		t.Run(tt.name, func(_ *testing.T) {
 			// 3. Share the object on a URL
 			shareResponse, shareError := SharesAnObjectOnAUrl(bucketName, tt.args.prefix, versionID, "604800s")
 			assert.Nil(shareError)
@@ -1589,7 +1574,7 @@ func TestListObjects(t *testing.T) {
 	fileName := "testlistobjecttobucket1.txt"
 
 	// 1. Create the bucket
-	if !setupBucket(bucketName, false, false, nil, nil, assert, 200) {
+	if !setupBucket(bucketName, false, nil, nil, nil, assert, 200) {
 		return
 	}
 
@@ -1606,7 +1591,7 @@ func TestListObjects(t *testing.T) {
 	}
 
 	// 3. List the object
-	listResponse, listError := ListObjects(bucketName, "", "false")
+	listResponse, listError := ListObjects(bucketName, "", false)
 	assert.Nil(listError)
 	if listError != nil {
 		log.Println(listError)
@@ -1633,11 +1618,10 @@ func TestDeleteObject(t *testing.T) {
 	assert := assert.New(t)
 	bucketName := "testdeleteobjectbucket1"
 	fileName := "testdeleteobjectfile"
-	path := "dGVzdGRlbGV0ZW9iamVjdGZpbGUxLnR4dA==" // fileName encoded base64
 	numberOfFiles := 2
 
 	// 1. Create bucket
-	if !setupBucket(bucketName, true, true, nil, nil, assert, 200) {
+	if !setupBucket(bucketName, true, map[string]interface{}{"enabled": true}, nil, nil, assert, 200) {
 		return
 	}
 
@@ -1656,8 +1640,9 @@ func TestDeleteObject(t *testing.T) {
 		}
 	}
 
+	objPathFull := fileName + "1.txt" // would be encoded in DeleteObject util method.
 	// 3. Delete only one object from the bucket.
-	deleteResponse, deleteError := DeleteObject(bucketName, path, false, false)
+	deleteResponse, deleteError := DeleteObject(bucketName, objPathFull, false, false)
 	assert.Nil(deleteError)
 	if deleteError != nil {
 		log.Println(deleteError)
@@ -1669,7 +1654,7 @@ func TestDeleteObject(t *testing.T) {
 	}
 
 	// 4. List the objects in the bucket and make sure the object is gone
-	listResponse, listError := ListObjects(bucketName, "", "false")
+	listResponse, listError := ListObjects(bucketName, "", false)
 	assert.Nil(listError)
 	if listError != nil {
 		log.Println(listError)
@@ -1703,7 +1688,7 @@ func TestUploadObjectToBucket(t *testing.T) {
 	fileName := "sample.txt"
 
 	// 1. Create the bucket
-	if !setupBucket(bucketName, false, false, nil, nil, assert, 200) {
+	if !setupBucket(bucketName, false, nil, nil, nil, assert, 200) {
 		return
 	}
 
@@ -1731,14 +1716,14 @@ func TestDownloadObject(t *testing.T) {
 	assert := assert.New(t)
 	bucketName := "testdownloadobjbucketone"
 	fileName := "testdownloadobjectfilenameone"
-	path := encodeBase64(fileName)
+	path := url.QueryEscape(fileName)
 	workingDirectory, getWdErr := os.Getwd()
 	if getWdErr != nil {
 		assert.Fail("Couldn't get the directory")
 	}
 
 	// 1. Create the bucket
-	if !setupBucket(bucketName, true, true, nil, nil, assert, 200) {
+	if !setupBucket(bucketName, true, map[string]interface{}{"enabled": true}, nil, nil, assert, 200) {
 		return
 	}
 
@@ -1800,7 +1785,7 @@ func TestDeleteMultipleObjects(t *testing.T) {
 	fileName := "testdeletemultipleobjs"
 
 	// 1. Create a bucket for this particular test
-	if !setupBucket(bucketName, false, false, nil, nil, assert, 200) {
+	if !setupBucket(bucketName, false, nil, nil, nil, assert, 200) {
 		return
 	}
 
@@ -1845,7 +1830,7 @@ func TestDeleteMultipleObjects(t *testing.T) {
 	}
 
 	// 4. List the objects, empty list is expected!
-	listResponse, listError := ListObjects(bucketName, "", "false")
+	listResponse, listError := ListObjects(bucketName, "", false)
 	assert.Nil(listError)
 	if listError != nil {
 		log.Println(listError)
@@ -1871,13 +1856,13 @@ func TestPutObjectTag(t *testing.T) {
 	assert := assert.New(t)
 	bucketName := "testputobjecttagbucketone"
 	fileName := "testputobjecttagbucketone.txt"
-	path := encodeBase64(fileName)
+	path := url.QueryEscape(fileName)
 	tags := make(map[string]string)
 	tags["tag"] = "testputobjecttagbucketonetagone"
 	versionID := "null"
 
 	// 1. Create the bucket
-	if !setupBucket(bucketName, false, false, nil, nil, assert, 200) {
+	if !setupBucket(bucketName, false, nil, nil, nil, assert, 200) {
 		return
 	}
 
@@ -1911,7 +1896,7 @@ func TestPutObjectTag(t *testing.T) {
 	}
 
 	// 4. Verify the object's tag is set
-	listResponse, listError := ListObjects(bucketName, path, "false")
+	listResponse, listError := ListObjects(bucketName, path, false)
 	assert.Nil(listError)
 	if listError != nil {
 		log.Println(listError)
@@ -1951,7 +1936,7 @@ func TestBucketRetention(t *testing.T) {
 	retention["mode"] = "compliance"
 	retention["unit"] = "years"
 	retention["validity"] = 2
-	if !setupBucket("setbucketretention1", true, true, nil, retention, assert, 200) {
+	if !setupBucket("setbucketretention1", true, map[string]interface{}{"enabled": true}, nil, retention, assert, 200) {
 		return
 	}
 
@@ -2002,7 +1987,7 @@ func TestBucketInformationGenericErrorResponse(t *testing.T) {
 
 	// 1. Create the bucket
 	assert := assert.New(t)
-	if !setupBucket("bucketinformation2", false, false, nil, nil, assert, 200) {
+	if !setupBucket("bucketinformation2", false, nil, nil, nil, assert, 200) {
 		return
 	}
 
@@ -2047,7 +2032,7 @@ func TestBucketInformationSuccessfulResponse(t *testing.T) {
 
 	// 1. Create the bucket
 	assert := assert.New(t)
-	if !setupBucket("bucketinformation1", false, false, nil, nil, assert, 200) {
+	if !setupBucket("bucketinformation1", false, nil, nil, nil, assert, 200) {
 		return
 	}
 
@@ -2131,7 +2116,7 @@ func TestDeleteBucket(t *testing.T) {
 	}
 
 	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
+		t.Run(tt.name, func(_ *testing.T) {
 			// Create bucket if needed for the test
 			if tt.args.createBucketName != "" {
 				if err := minioClient.MakeBucket(context.Background(), tt.args.createBucketName, minio.MakeBucketOptions{}); err != nil {
@@ -2160,10 +2145,13 @@ func TestListBuckets(t *testing.T) {
 	// 1. Create buckets
 	numberOfBuckets := 3
 	for i := 1; i <= numberOfBuckets; i++ {
-		if !setupBucket("testlistbuckets"+strconv.Itoa(i), false, false, nil, nil, assert, 200) {
+		if !setupBucket("testlistbuckets"+strconv.Itoa(i), false, nil, nil, nil, assert, 200) {
 			return
 		}
 	}
+
+	// Waiting to retrieve the new list of buckets
+	time.Sleep(3 * time.Second)
 
 	// 2. List buckets
 	listBucketsResponse, listBucketsError := ListBuckets()
@@ -2267,7 +2255,7 @@ func TestBucketVersioning(t *testing.T) {
 
 	requestDataBody := bytes.NewReader(requestDataJSON)
 
-	if !setupBucket("test2", true, false, nil, nil, assert, 200) {
+	if !setupBucket("test2", true, nil, nil, nil, assert, 200) {
 		return
 	}
 
@@ -2335,7 +2323,7 @@ func TestSetBucketTags(t *testing.T) {
 	}
 
 	// put bucket
-	if !setupBucket("test4", false, false, nil, nil, assert, 200) {
+	if !setupBucket("test4", false, nil, nil, nil, assert, 200) {
 		return
 	}
 
@@ -2402,7 +2390,7 @@ func TestGetBucket(t *testing.T) {
 		Timeout: 2 * time.Second,
 	}
 
-	if !setupBucket("test3", false, false, nil, nil, assert, 200) {
+	if !setupBucket("test3", false, nil, nil, nil, assert, 200) {
 		return
 	}
 
@@ -2454,8 +2442,8 @@ func TestAddBucket(t *testing.T) {
 		},
 	}
 	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			if !setupBucket(tt.args.bucketName, false, false, nil, nil, assert, tt.expectedStatus) {
+		t.Run(tt.name, func(_ *testing.T) {
+			if !setupBucket(tt.args.bucketName, false, nil, nil, nil, assert, tt.expectedStatus) {
 				return
 			}
 		})
@@ -3000,7 +2988,7 @@ func TestReturnsTheStatusOfObjectLockingSupportOnTheBucket(t *testing.T) {
 	)
 }
 
-func SetBucketVersioning(bucketName string, versioning bool, endpoint, useToken *string) (*http.Response, error) {
+func SetBucketVersioning(bucketName string, versioning map[string]interface{}, endpoint, useToken *string) (*http.Response, error) {
 	/*
 		Helper function to set Bucket Versioning
 	*/
@@ -3037,7 +3025,7 @@ func TestSetBucketVersioning(t *testing.T) {
 	assert := assert.New(t)
 	bucket := "test-set-bucket-versioning"
 	locking := false
-	versioning := true
+	versioning := map[string]interface{}{"enabled": true}
 
 	// 1. Create bucket with versioning as true and locking as false
 	if !setupBucket(bucket, locking, versioning, nil, nil, assert, 200) {
@@ -3045,7 +3033,7 @@ func TestSetBucketVersioning(t *testing.T) {
 	}
 
 	// 2. Set versioning as False i.e Suspend versioning
-	response, err := SetBucketVersioning(bucket, false, nil, nil)
+	response, err := SetBucketVersioning(bucket, map[string]interface{}{"enabled": false}, nil, nil)
 	assert.Nil(err)
 	if err != nil {
 		log.Println(err)
@@ -3118,12 +3106,11 @@ func TestEnableBucketEncryption(t *testing.T) {
 	assert := assert.New(t)
 	bucketName := "test-enable-bucket-encryption"
 	locking := false
-	versioning := false
 	encType := "sse-s3"
 	kmsKeyID := ""
 
 	// 1. Add bucket
-	if !setupBucket(bucketName, locking, versioning, nil, nil, assert, 200) {
+	if !setupBucket(bucketName, locking, nil, nil, nil, assert, 200) {
 		return
 	}
 
@@ -3183,13 +3170,13 @@ func TestEnableBucketEncryption(t *testing.T) {
 			404, resp.StatusCode, "Status Code is incorrect")
 	}
 	bodyBytes, _ = io.ReadAll(resp.Body)
-	result2 := models.Error{}
+	result2 := models.APIError{}
 	err = json.Unmarshal(bodyBytes, &result2)
 	if err != nil {
 		log.Println(err)
 		assert.Nil(err)
 	}
-	dereferencedPointerDetailedMessage := *result2.DetailedMessage
+	dereferencedPointerDetailedMessage := result2.DetailedMessage
 	assert.Equal("error server side encryption configuration not found", dereferencedPointerDetailedMessage, dereferencedPointerDetailedMessage)
 }
 
@@ -3235,277 +3222,6 @@ func DisableBucketEncryption(bucketName string) (*http.Response, error) {
 	}
 	response, err := client.Do(request)
 	return response, err
-}
-
-func UpdateLifecycleRule(bucketName, ltype string, disable bool, prefix, tags string, expiredObjectDeleteMarker bool, expiryDays, noncurrentversionExpirationDays int64, lifecycleID string) (*http.Response, error) {
-	// Helper function to update lifecycle rule
-	// HTTP Verb: PUT
-	// URL: /buckets/{bucket_name}/lifecycle/{lifecycle_id}
-	// Body Example:
-	// {
-	// 	"type":"expiry",
-	// 	"disable":false,
-	// 	"prefix":"",
-	// 	"tags":"",
-	// 	"expired_object_delete_marker":false,
-	// 	"expiry_days":2,
-	// 	"noncurrentversion_expiration_days":0
-	// }
-
-	requestDataAdd := map[string]interface{}{
-		"type":                              ltype,
-		"disable":                           disable,
-		"prefix":                            prefix,
-		"tags":                              tags,
-		"expired_object_delete_marker":      expiredObjectDeleteMarker,
-		"expiry_days":                       expiryDays,
-		"noncurrentversion_expiration_days": noncurrentversionExpirationDays,
-	}
-	requestDataJSON, _ := json.Marshal(requestDataAdd)
-	requestDataBody := bytes.NewReader(requestDataJSON)
-	request, err := http.NewRequest("PUT",
-		"http://localhost:9090/api/v1/buckets/"+bucketName+"/lifecycle/"+lifecycleID,
-		requestDataBody)
-	if err != nil {
-		log.Println(err)
-	}
-	request.Header.Add("Cookie", fmt.Sprintf("token=%s", token))
-	request.Header.Add("Content-Type", "application/json")
-	client := &http.Client{
-		Timeout: 2 * time.Second,
-	}
-	response, err := client.Do(request)
-	return response, err
-}
-
-func GetBucketLifeCycle(bucketName string) (*http.Response, error) {
-	// Get Bucket Lifecycle
-	// HTTP Verb: GET
-	// URL: /buckets/{bucket_name}/lifecycle
-	// Response Example:
-	// {
-	// 	"lifecycle": [
-	// 		{
-	// 			"expiration": {
-	// 				"date": "0001-01-01T00:00:00Z",
-	// 				"days": 1
-	// 			},
-	// 			"id": "c8nmpte49b3m6uu3pac0",
-	// 			"status": "Enabled",
-	// 			"tags": null,
-	// 			"transition": {
-	// 				"date": "0001-01-01T00:00:00Z"
-	// 			}
-	// 		}
-	// 	]
-	// }
-	request, err := http.NewRequest(
-		"GET", "http://localhost:9090/api/v1/buckets/"+bucketName+"/lifecycle", nil)
-	if err != nil {
-		log.Println(err)
-	}
-	request.Header.Add("Cookie", fmt.Sprintf("token=%s", token))
-	request.Header.Add("Content-Type", "application/json")
-	client := &http.Client{
-		Timeout: 2 * time.Second,
-	}
-	response, err := client.Do(request)
-	return response, err
-}
-
-func AddBucketLifecycle(bucketName, ltype, prefix, tags string, expiredObjectDeleteMarker bool, expiryDays, noncurrentversionExpirationDays int64) (*http.Response, error) {
-	// Helper function to add bucket lifecycle
-	// URL: /buckets/{bucket_name}/lifecycle
-	// HTTP Verb: POST
-	// Body Example:
-	// {
-	// 	"type":"expiry",
-	// 	"prefix":"",
-	// 	"tags":"",
-	// 	"expired_object_delete_marker":false,
-	// 	"expiry_days":1,
-	// 	"noncurrentversion_expiration_days":null
-	// }
-	// Needed Parameters for API Call
-	requestDataAdd := map[string]interface{}{
-		"type":                              ltype,
-		"prefix":                            prefix,
-		"tags":                              tags,
-		"expired_object_delete_marker":      expiredObjectDeleteMarker,
-		"expiry_days":                       expiryDays,
-		"noncurrentversion_expiration_days": noncurrentversionExpirationDays,
-	}
-
-	// Creating the Call by adding the URL and Headers
-	requestDataJSON, _ := json.Marshal(requestDataAdd)
-	requestDataBody := bytes.NewReader(requestDataJSON)
-	request, err := http.NewRequest(
-		"POST",
-		"http://localhost:9090/api/v1/buckets/"+bucketName+"/lifecycle",
-		requestDataBody,
-	)
-	if err != nil {
-		log.Println(err)
-	}
-	request.Header.Add("Cookie", fmt.Sprintf("token=%s", token))
-	request.Header.Add("Content-Type", "application/json")
-
-	// Performing the call
-	client := &http.Client{
-		Timeout: 2 * time.Second,
-	}
-	response, err := client.Do(request)
-	return response, err
-}
-
-func DeleteLifecycleRule(bucketName, lifecycleID string) (*http.Response, error) {
-	// Helper function to delete lifecycle rule
-	// HTTP Verb: DELETE
-	// URL: /buckets/{bucket_name}/lifecycle/{lifecycle_id}
-	request, err := http.NewRequest(
-		"DELETE", "http://localhost:9090/api/v1/buckets/"+bucketName+"/lifecycle/"+lifecycleID, nil)
-	if err != nil {
-		log.Println(err)
-	}
-	request.Header.Add("Cookie", fmt.Sprintf("token=%s", token))
-	request.Header.Add("Content-Type", "application/json")
-	client := &http.Client{
-		Timeout: 2 * time.Second,
-	}
-	response, err := client.Do(request)
-	return response, err
-}
-
-func TestBucketLifeCycle(t *testing.T) {
-	// Variables
-	assert := assert.New(t)
-	bucketName := "test-bucket-life-cycle"
-	locking := false
-	versioning := false
-	ltype := "expiry"
-	prefix := ""
-	tags := ""
-	var expiryDays int64 = 1
-	var expiryDays2 int64 = 2
-	disable := false
-	expiredObjectDeleteMarker := false
-	var noncurrentversionExpirationDays int64
-
-	// 1. Add bucket
-	if !setupBucket(bucketName, locking, versioning, nil, nil, assert, 200) {
-		return
-	}
-
-	// 2. Add Bucket Lifecycle
-	resp, err := AddBucketLifecycle(
-		bucketName,
-		ltype,
-		prefix,
-		tags,
-		expiredObjectDeleteMarker,
-		expiryDays,
-		noncurrentversionExpirationDays,
-	)
-	assert.Nil(err)
-	if err != nil {
-		log.Println(err)
-		return
-	}
-	if resp != nil {
-		assert.Equal(
-			201, resp.StatusCode, "Status Code is incorrect")
-	}
-
-	// 3. Get Bucket LifeCycle
-	resp, err = GetBucketLifeCycle(bucketName)
-	assert.Nil(err)
-	if err != nil {
-		log.Println(err)
-		return
-	}
-	if resp != nil {
-		assert.Equal(
-			200, resp.StatusCode, "Status Code is incorrect")
-	}
-	bodyBytes, _ := io.ReadAll(resp.Body)
-	result := models.BucketLifecycleResponse{}
-	err = json.Unmarshal(bodyBytes, &result)
-	if err != nil {
-		log.Println(err)
-		assert.Nil(err)
-	}
-	Status := &result.Lifecycle[0].Status
-	Days := &result.Lifecycle[0].Expiration.Days
-	lifecycleID := &result.Lifecycle[0].ID
-	assert.Equal(expiryDays, *Days, *Days)    // Checking it is one day expiration
-	assert.Equal("Enabled", *Status, *Status) // Checking it's enabled
-
-	// 4. Update from 1 day expiration to 2 days expiration
-	resp, err = UpdateLifecycleRule(
-		bucketName,
-		ltype,
-		disable,
-		prefix,
-		tags,
-		expiredObjectDeleteMarker,
-		expiryDays2,
-		noncurrentversionExpirationDays,
-		*lifecycleID,
-	)
-	assert.Nil(err)
-	if err != nil {
-		log.Println(err)
-		return
-	}
-	if resp != nil {
-		assert.Equal(
-			200, resp.StatusCode, "Status Code is incorrect")
-	}
-
-	// 5. Verify 2 expiration days got updated
-	resp, err = GetBucketLifeCycle(bucketName)
-	assert.Nil(err)
-	if err != nil {
-		log.Println(err)
-		return
-	}
-	if resp != nil {
-		assert.Equal(
-			200, resp.StatusCode, "Status Code is incorrect")
-	}
-	bodyBytes, _ = io.ReadAll(resp.Body)
-	result = models.BucketLifecycleResponse{}
-	err = json.Unmarshal(bodyBytes, &result)
-	if err != nil {
-		log.Println(err)
-		assert.Nil(err)
-	}
-	Days = &result.Lifecycle[0].Expiration.Days
-	assert.Equal(expiryDays2, *Days, *Days) // Checking it is two days expiration
-
-	// 6. Delete Bucket Lifecycle
-	resp, err = DeleteLifecycleRule(bucketName, *lifecycleID)
-	assert.Nil(err)
-	if err != nil {
-		log.Println(err)
-		return
-	}
-	if resp != nil {
-		assert.Equal(
-			204, resp.StatusCode, "Status Code is incorrect")
-	}
-
-	// 6. Verify bucket lifecycle got deleted
-	resp, err = GetBucketLifeCycle(bucketName)
-	assert.Nil(err)
-	if err != nil {
-		log.Println(err)
-		return
-	}
-	if resp != nil {
-		assert.Equal(
-			404, resp.StatusCode, "Status Code is incorrect")
-	}
 }
 
 func SetAccessRuleWithBucket(bucketName, prefix, access string) (*http.Response, error) {
@@ -3597,12 +3313,11 @@ func TestAccessRule(t *testing.T) {
 	assert := assert.New(t)
 	bucketName := "test-access-rule-bucket"
 	locking := false
-	versioning := false
 	prefix := "prefix"
 	access := "readonly"
 
 	// 1. Add bucket
-	if !setupBucket(bucketName, locking, versioning, nil, nil, assert, 200) {
+	if !setupBucket(bucketName, locking, nil, nil, nil, assert, 200) {
 		return
 	}
 
@@ -3846,16 +3561,16 @@ func TestAddRemoteBucket(t *testing.T) {
 	fmt.Println("targetBucket: ", targetBucket)
 
 	// 1. Create bucket
-	if !setupBucket("source", true, true, nil, nil, assert, 200) {
+	if !setupBucket("source", true, map[string]interface{}{"enabled": true}, nil, nil, assert, 200) {
 		return
 	}
 	// 1.1. Create target bucket
 	targetEndpoint := "http://localhost:9092"
 	targetToken := getTokenForEndpoint(targetEndpoint)
-	if !setupBucketForEndpoint(targetBucket, true, true, nil, nil, assert, 200, &targetEndpoint, &targetToken) {
+	if !setupBucketForEndpoint(targetBucket, true, map[string]interface{}{"enabled": true}, nil, nil, assert, 200, &targetEndpoint, &targetToken) {
 		log.Println("bucket already exists")
 	}
-	_, err := SetBucketVersioning(targetBucket, false, &targetURL, &targetToken)
+	_, err := SetBucketVersioning(targetBucket, map[string]interface{}{"enabled": false}, &targetURL, &targetToken)
 	if err != nil {
 		log.Println("bucket already has versioning")
 	}
@@ -3905,16 +3620,16 @@ func TestDeleteRemoteBucket(t *testing.T) {
 	fmt.Println("targetBucket: ", targetBucket)
 
 	// 1. Create bucket
-	if !setupBucket("deletesource", true, true, nil, nil, assert, 200) {
+	if !setupBucket("deletesource", true, map[string]interface{}{"enabled": true}, nil, nil, assert, 200) {
 		return
 	}
 	// 1.1. Create target bucket
 	targetEndpoint := "http://localhost:9092"
 	targetToken := getTokenForEndpoint(targetEndpoint)
-	if !setupBucketForEndpoint(targetBucket, true, true, nil, nil, assert, 200, &targetEndpoint, &targetToken) {
+	if !setupBucketForEndpoint(targetBucket, true, map[string]interface{}{"enabled": true}, nil, nil, assert, 200, &targetEndpoint, &targetToken) {
 		log.Println("bucket already exists")
 	}
-	_, err := SetBucketVersioning(targetBucket, false, &targetURL, &targetToken)
+	_, err := SetBucketVersioning(targetBucket, map[string]interface{}{"enabled": false}, &targetURL, &targetToken)
 	if err != nil {
 		log.Println("bucket already has versioning")
 	}

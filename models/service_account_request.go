@@ -34,6 +34,18 @@ import (
 // swagger:model serviceAccountRequest
 type ServiceAccountRequest struct {
 
+	// comment
+	Comment string `json:"comment,omitempty"`
+
+	// description
+	Description string `json:"description,omitempty"`
+
+	// expiry
+	Expiry string `json:"expiry,omitempty"`
+
+	// name
+	Name string `json:"name,omitempty"`
+
 	// policy to be applied to the Service Account if any
 	Policy string `json:"policy,omitempty"`
 }
