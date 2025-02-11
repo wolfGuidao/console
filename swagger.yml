@@ -1,3 +1,5 @@
+# @format
+
 swagger: "2.0"
 info:
   title: MinIO Console Server
@@ -23,7 +25,20 @@ securityDefinitions:
     type: apiKey
 # Apply the key security definition to all APIs
 security:
-  - key: [ ]
+  - key: []
+parameters:
+  limit:
+    name: limit
+    in: query
+    type: number
+    format: int32
+    default: 20
+  offset:
+    name: offset
+    in: query
+    type: number
+    format: int32
+    default: 0
 paths:
   /login:
     get:
@@ -37,9 +52,9 @@ paths:
         default:
           description: Generic error response.
           schema:
-            $ref: "#/definitions/error"
+            $ref: "#/definitions/ApiError"
       # Exclude this API from the authentication requirement
-      security: [ ]
+      security: []
       tags:
         - Auth
     post:
@@ -57,9 +72,9 @@ paths:
         default:
           description: Generic error response.
           schema:
-            $ref: "#/definitions/error"
+            $ref: "#/definitions/ApiError"
       # Exclude this API from the authentication requirement
-      security: [ ]
+      security: []
       tags:
         - Auth
   /login/oauth2/auth:
@@ -78,8 +93,8 @@ paths:
         default:
           description: Generic error response.
           schema:
-            $ref: "#/definitions/error"
-      security: [ ]
+            $ref: "#/definitions/ApiError"
+      security: []
       tags:
         - Auth
 
@@ -99,7 +114,7 @@ paths:
         default:
           description: Generic error response.
           schema:
-            $ref: "#/definitions/error"
+            $ref: "#/definitions/ApiError"
       tags:
         - Auth
 
@@ -115,26 +130,9 @@ paths:
         default:
           description: Generic error response.
           schema:
-            $ref: "#/definitions/error"
+            $ref: "#/definitions/ApiError"
       tags:
         - Auth
-
-  /check-version:
-    get:
-      summary: Checks the current MinIO version against the latest
-      operationId: CheckMinIOVersion
-      responses:
-        200:
-          description: A successful response.
-          schema:
-            $ref: "#/definitions/checkVersionResponse"
-        default:
-          description: Generic error response.
-          schema:
-            $ref: "#/definitions/error"
-      security: [ ]
-      tags:
-        - System
 
   /account/change-password:
     post:
@@ -152,7 +150,7 @@ paths:
         default:
           description: Generic error response.
           schema:
-            $ref: "#/definitions/error"
+            $ref: "#/definitions/ApiError"
       tags:
         - Account
 
@@ -172,7 +170,7 @@ paths:
         default:
           description: Generic error response.
           schema:
-            $ref: "#/definitions/error"
+            $ref: "#/definitions/ApiError"
       tags:
         - Account
 
@@ -188,7 +186,7 @@ paths:
         default:
           description: Generic error response.
           schema:
-            $ref: "#/definitions/error"
+            $ref: "#/definitions/ApiError"
       tags:
         - Bucket
     post:
@@ -208,7 +206,7 @@ paths:
         default:
           description: Generic error response.
           schema:
-            $ref: "#/definitions/error"
+            $ref: "#/definitions/ApiError"
       tags:
         - Bucket
 
@@ -229,7 +227,7 @@ paths:
         default:
           description: Generic error response.
           schema:
-            $ref: "#/definitions/error"
+            $ref: "#/definitions/ApiError"
       tags:
         - Bucket
     delete:
@@ -246,7 +244,7 @@ paths:
         default:
           description: Generic error response.
           schema:
-            $ref: "#/definitions/error"
+            $ref: "#/definitions/ApiError"
       tags:
         - Bucket
 
@@ -267,7 +265,7 @@ paths:
         default:
           description: Generic error response.
           schema:
-            $ref: "#/definitions/error"
+            $ref: "#/definitions/ApiError"
       tags:
         - Bucket
     put:
@@ -289,7 +287,7 @@ paths:
         default:
           description: Generic error response.
           schema:
-            $ref: "#/definitions/error"
+            $ref: "#/definitions/ApiError"
       tags:
         - Bucket
 
@@ -297,8 +295,8 @@ paths:
     get:
       summary: List Objects
       security:
-        - key: [ ]
-        - anonymous: [ ]
+        - key: []
+        - anonymous: []
       operationId: ListObjects
       parameters:
         - name: bucket_name
@@ -321,11 +319,7 @@ paths:
           in: query
           required: false
           type: boolean
-        - name: limit
-          in: query
-          required: false
-          type: integer
-          format: int32
+        - $ref: "#/parameters/limit"
       responses:
         200:
           description: A successful response.
@@ -334,7 +328,7 @@ paths:
         default:
           description: Generic error response.
           schema:
-            $ref: "#/definitions/error"
+            $ref: "#/definitions/ApiError"
       tags:
         - Object
     delete:
@@ -345,7 +339,7 @@ paths:
           in: path
           required: true
           type: string
-        - name: path
+        - name: prefix
           in: query
           required: true
           type: string
@@ -375,7 +369,7 @@ paths:
         default:
           description: Generic error response.
           schema:
-            $ref: "#/definitions/error"
+            $ref: "#/definitions/ApiError"
       tags:
         - Object
 
@@ -409,7 +403,7 @@ paths:
         default:
           description: Generic error response.
           schema:
-            $ref: "#/definitions/error"
+            $ref: "#/definitions/ApiError"
       tags:
         - Object
 
@@ -417,8 +411,8 @@ paths:
     post:
       summary: Uploads an Object.
       security:
-        - key: [ ]
-        - anonymous: [ ]
+        - key: []
+        - anonymous: []
       consumes:
         - multipart/form-data
       parameters:
@@ -435,7 +429,40 @@ paths:
         default:
           description: Generic error response.
           schema:
-            $ref: "#/definitions/error"
+            $ref: "#/definitions/ApiError"
+      tags:
+        - Object
+
+  /buckets/{bucket_name}/objects/download-multiple:
+    post:
+      summary: Download Multiple Objects
+      operationId: DownloadMultipleObjects
+      security:
+        - key: []
+        - anonymous: []
+      produces:
+        - application/octet-stream
+      parameters:
+        - name: bucket_name
+          in: path
+          required: true
+          type: string
+        - name: objectList
+          in: body
+          required: true
+          schema:
+            type: array
+            items:
+              type: string
+      responses:
+        200:
+          description: A successful response.
+          schema:
+            type: file
+        default:
+          description: Generic error response.
+          schema:
+            $ref: "#/definitions/ApiError"
       tags:
         - Object
 
@@ -444,8 +471,8 @@ paths:
       summary: Download Object
       operationId: Download Object
       security:
-        - key: [ ]
-        - anonymous: [ ]
+        - key: []
+        - anonymous: []
       produces:
         - application/octet-stream
       parameters:
@@ -479,7 +506,7 @@ paths:
         default:
           description: Generic error response.
           schema:
-            $ref: "#/definitions/error"
+            $ref: "#/definitions/ApiError"
       tags:
         - Object
 
@@ -512,10 +539,9 @@ paths:
         default:
           description: Generic error response.
           schema:
-            $ref: "#/definitions/error"
+            $ref: "#/definitions/ApiError"
       tags:
         - Object
-
   /buckets/{bucket_name}/objects/legalhold:
     put:
       summary: Put Object's legalhold status
@@ -544,7 +570,7 @@ paths:
         default:
           description: Generic error response.
           schema:
-            $ref: "#/definitions/error"
+            $ref: "#/definitions/ApiError"
       tags:
         - Object
 
@@ -576,7 +602,7 @@ paths:
         default:
           description: Generic error response.
           schema:
-            $ref: "#/definitions/error"
+            $ref: "#/definitions/ApiError"
       tags:
         - Object
     delete:
@@ -601,7 +627,7 @@ paths:
         default:
           description: Generic error response.
           schema:
-            $ref: "#/definitions/error"
+            $ref: "#/definitions/ApiError"
       tags:
         - Object
 
@@ -633,7 +659,7 @@ paths:
         default:
           description: Generic error response.
           schema:
-            $ref: "#/definitions/error"
+            $ref: "#/definitions/ApiError"
       tags:
         - Object
 
@@ -660,7 +686,7 @@ paths:
         default:
           description: Generic error response.
           schema:
-            $ref: "#/definitions/error"
+            $ref: "#/definitions/ApiError"
       tags:
         - Object
 
@@ -677,6 +703,9 @@ paths:
           in: query
           required: true
           type: string
+        - name: versionID
+          in: query
+          type: string
       responses:
         200:
           description: A successful response.
@@ -685,7 +714,7 @@ paths:
         default:
           description: Generic error response.
           schema:
-            $ref: "#/definitions/error"
+            $ref: "#/definitions/ApiError"
       tags:
         - Object
 
@@ -709,7 +738,7 @@ paths:
         default:
           description: Generic error response.
           schema:
-            $ref: "#/definitions/error"
+            $ref: "#/definitions/ApiError"
       tags:
         - Bucket
 
@@ -735,7 +764,7 @@ paths:
         default:
           description: Generic error response.
           schema:
-            $ref: "#/definitions/error"
+            $ref: "#/definitions/ApiError"
       tags:
         - Bucket
 
@@ -756,7 +785,7 @@ paths:
         default:
           description: Generic error response.
           schema:
-            $ref: "#/definitions/error"
+            $ref: "#/definitions/ApiError"
       tags:
         - Bucket
     put:
@@ -780,7 +809,7 @@ paths:
         default:
           description: Generic error response.
           schema:
-            $ref: "#/definitions/error"
+            $ref: "#/definitions/ApiError"
       tags:
         - Bucket
 
@@ -793,16 +822,8 @@ paths:
           in: path
           required: true
           type: string
-        - name: offset
-          in: query
-          required: false
-          type: integer
-          format: int32
-        - name: limit
-          in: query
-          required: false
-          type: integer
-          format: int32
+        - $ref: "#/parameters/offset"
+        - $ref: "#/parameters/limit"
       responses:
         200:
           description: A successful response.
@@ -811,7 +832,7 @@ paths:
         default:
           description: Generic error response.
           schema:
-            $ref: "#/definitions/error"
+            $ref: "#/definitions/ApiError"
       tags:
         - Bucket
     post:
@@ -833,7 +854,7 @@ paths:
         default:
           description: Generic error response.
           schema:
-            $ref: "#/definitions/error"
+            $ref: "#/definitions/ApiError"
       tags:
         - Bucket
 
@@ -861,51 +882,7 @@ paths:
         default:
           description: Generic error response.
           schema:
-            $ref: "#/definitions/error"
-      tags:
-        - Bucket
-
-  /list-external-buckets:
-    post:
-      summary: Lists an External list of buckets using custom credentials
-      operationId: ListExternalBuckets
-      parameters:
-        - name: body
-          in: body
-          required: true
-          schema:
-            $ref: "#/definitions/listExternalBucketsParams"
-      responses:
-        200:
-          description: A successful response.
-          schema:
-            $ref: "#/definitions/listBucketsResponse"
-        default:
-          description: Generic error response.
-          schema:
-            $ref: "#/definitions/error"
-      tags:
-        - Bucket
-
-  /buckets-replication:
-    post:
-      summary: Sets Multi Bucket Replication in multiple Buckets
-      operationId: SetMultiBucketReplication
-      parameters:
-        - name: body
-          in: body
-          required: true
-          schema:
-            $ref: "#/definitions/multiBucketReplication"
-      responses:
-        200:
-          description: A successful response.
-          schema:
-            $ref: "#/definitions/multiBucketResponseState"
-        default:
-          description: Generic error response.
-          schema:
-            $ref: "#/definitions/error"
+            $ref: "#/definitions/ApiError"
       tags:
         - Bucket
 
@@ -926,7 +903,7 @@ paths:
         default:
           description: Generic error response.
           schema:
-            $ref: "#/definitions/error"
+            $ref: "#/definitions/ApiError"
       tags:
         - Bucket
 
@@ -951,7 +928,7 @@ paths:
         default:
           description: Generic error response.
           schema:
-            $ref: "#/definitions/error"
+            $ref: "#/definitions/ApiError"
       tags:
         - Bucket
 
@@ -978,7 +955,7 @@ paths:
         default:
           description: Generic error response.
           schema:
-            $ref: "#/definitions/error"
+            $ref: "#/definitions/ApiError"
       tags:
         - Bucket
 
@@ -1001,7 +978,7 @@ paths:
         default:
           description: Generic error response.
           schema:
-            $ref: "#/definitions/error"
+            $ref: "#/definitions/ApiError"
       tags:
         - Bucket
 
@@ -1020,7 +997,7 @@ paths:
         default:
           description: Generic error response.
           schema:
-            $ref: "#/definitions/error"
+            $ref: "#/definitions/ApiError"
       tags:
         - Bucket
 
@@ -1044,7 +1021,7 @@ paths:
         default:
           description: Generic error response.
           schema:
-            $ref: "#/definitions/error"
+            $ref: "#/definitions/ApiError"
       tags:
         - Bucket
 
@@ -1065,7 +1042,7 @@ paths:
         default:
           description: Generic error response.
           schema:
-            $ref: "#/definitions/error"
+            $ref: "#/definitions/ApiError"
       tags:
         - Bucket
     put:
@@ -1087,7 +1064,7 @@ paths:
         default:
           description: Generic error response.
           schema:
-            $ref: "#/definitions/error"
+            $ref: "#/definitions/ApiError"
       tags:
         - Bucket
 
@@ -1108,7 +1085,7 @@ paths:
         default:
           description: Generic error response.
           schema:
-            $ref: "#/definitions/error"
+            $ref: "#/definitions/ApiError"
       tags:
         - Bucket
 
@@ -1132,7 +1109,7 @@ paths:
         default:
           description: Generic error response.
           schema:
-            $ref: "#/definitions/error"
+            $ref: "#/definitions/ApiError"
       tags:
         - Bucket
 
@@ -1151,7 +1128,7 @@ paths:
         default:
           description: Generic error response.
           schema:
-            $ref: "#/definitions/error"
+            $ref: "#/definitions/ApiError"
       tags:
         - Bucket
 
@@ -1172,122 +1149,7 @@ paths:
         default:
           description: Generic error response.
           schema:
-            $ref: "#/definitions/error"
-      tags:
-        - Bucket
-
-  /buckets/{bucket_name}/lifecycle:
-    get:
-      summary: Bucket Lifecycle
-      operationId: GetBucketLifecycle
-      parameters:
-        - name: bucket_name
-          in: path
-          required: true
-          type: string
-      responses:
-        200:
-          description: A successful response.
-          schema:
-            $ref: "#/definitions/bucketLifecycleResponse"
-        default:
-          description: Generic error response.
-          schema:
-            $ref: "#/definitions/error"
-      tags:
-        - Bucket
-    post:
-      summary: Add Bucket Lifecycle
-      operationId: AddBucketLifecycle
-      parameters:
-        - name: bucket_name
-          in: path
-          required: true
-          type: string
-        - name: body
-          in: body
-          required: true
-          schema:
-            $ref: "#/definitions/addBucketLifecycle"
-      responses:
-        201:
-          description: A successful response.
-        default:
-          description: Generic error response.
-          schema:
-            $ref: "#/definitions/error"
-      tags:
-        - Bucket
-
-  /buckets/multi-lifecycle:
-    post:
-      summary: Add Multi Bucket Lifecycle
-      operationId: AddMultiBucketLifecycle
-      parameters:
-        - name: body
-          in: body
-          required: true
-          schema:
-            $ref: "#/definitions/addMultiBucketLifecycle"
-      responses:
-        200:
-          description: A successful response.
-          schema:
-            $ref: "#/definitions/multiLifecycleResult"
-        default:
-          description: Generic error response.
-          schema:
-            $ref: "#/definitions/error"
-      tags:
-        - Bucket
-
-  /buckets/{bucket_name}/lifecycle/{lifecycle_id}:
-    put:
-      summary: Update Lifecycle rule
-      operationId: UpdateBucketLifecycle
-      parameters:
-        - name: bucket_name
-          in: path
-          required: true
-          type: string
-        - name: lifecycle_id
-          in: path
-          required: true
-          type: string
-        - name: body
-          in: body
-          required: true
-          schema:
-            $ref: "#/definitions/updateBucketLifecycle"
-      responses:
-        200:
-          description: A successful response.
-        default:
-          description: Generic error response.
-          schema:
-            $ref: "#/definitions/error"
-      tags:
-        - Bucket
-
-    delete:
-      summary: Delete Lifecycle rule
-      operationId: DeleteBucketLifecycleRule
-      parameters:
-        - name: bucket_name
-          in: path
-          required: true
-          type: string
-        - name: lifecycle_id
-          in: path
-          required: true
-          type: string
-      responses:
-        204:
-          description: A successful response.
-        default:
-          description: Generic error response.
-          schema:
-            $ref: "#/definitions/error"
+            $ref: "#/definitions/ApiError"
       tags:
         - Bucket
 
@@ -1316,7 +1178,67 @@ paths:
         default:
           description: Generic error response.
           schema:
-            $ref: "#/definitions/error"
+            $ref: "#/definitions/ApiError"
+      tags:
+        - Bucket
+
+  /buckets/max-share-exp:
+    get:
+      summary: Get max expiration time for share link in seconds
+      operationId: GetMaxShareLinkExp
+      responses:
+        200:
+          description: A successful response.
+          schema:
+            $ref: "#/definitions/maxShareLinkExpResponse"
+        default:
+          description: Generic error response.
+          schema:
+            $ref: "#/definitions/ApiError"
+      tags:
+        - Bucket
+
+  /list-external-buckets:
+    post:
+      summary: Lists an External list of buckets using custom credentials
+      operationId: ListExternalBuckets
+      parameters:
+        - name: body
+          in: body
+          required: true
+          schema:
+            $ref: "#/definitions/listExternalBucketsParams"
+      responses:
+        200:
+          description: A successful response.
+          schema:
+            $ref: "#/definitions/listBucketsResponse"
+        default:
+          description: Generic error response.
+          schema:
+            $ref: "#/definitions/ApiError"
+      tags:
+        - Bucket
+
+  /buckets-replication:
+    post:
+      summary: Sets Multi Bucket Replication in multiple Buckets
+      operationId: SetMultiBucketReplication
+      parameters:
+        - name: body
+          in: body
+          required: true
+          schema:
+            $ref: "#/definitions/multiBucketReplication"
+      responses:
+        200:
+          description: A successful response.
+          schema:
+            $ref: "#/definitions/multiBucketResponseState"
+        default:
+          description: Generic error response.
+          schema:
+            $ref: "#/definitions/ApiError"
       tags:
         - Bucket
 
@@ -1325,16 +1247,8 @@ paths:
       summary: List User's Service Accounts
       operationId: ListUserServiceAccounts
       parameters:
-        - name: offset
-          in: query
-          required: false
-          type: integer
-          format: int32
-        - name: limit
-          in: query
-          required: false
-          type: integer
-          format: int32
+        - $ref: "#/parameters/offset"
+        - $ref: "#/parameters/limit"
       responses:
         200:
           description: A successful response.
@@ -1343,7 +1257,7 @@ paths:
         default:
           description: Generic error response.
           schema:
-            $ref: "#/definitions/error"
+            $ref: "#/definitions/ApiError"
       tags:
         - ServiceAccount
     post:
@@ -1363,7 +1277,7 @@ paths:
         default:
           description: Generic error response.
           schema:
-            $ref: "#/definitions/error"
+            $ref: "#/definitions/ApiError"
       tags:
         - ServiceAccount
 
@@ -1385,11 +1299,72 @@ paths:
         default:
           description: Generic error response.
           schema:
-            $ref: "#/definitions/error"
+            $ref: "#/definitions/ApiError"
+      tags:
+        - ServiceAccount
+
+  /service-accounts/delete-multi:
+    delete:
+      summary: Delete Multiple Service Accounts
+      operationId: DeleteMultipleServiceAccounts
+      parameters:
+        - name: selectedSA
+          in: body
+          required: true
+          schema:
+            $ref: "#/definitions/selectedSAs"
+      responses:
+        204:
+          description: A successful response.
+        default:
+          description: Generic error response.
+          schema:
+            $ref: "#/definitions/ApiError"
       tags:
         - ServiceAccount
 
   /service-accounts/{access_key}:
+    get:
+      summary: Get Service Account
+      operationId: GetServiceAccount
+      parameters:
+        - name: access_key
+          in: path
+          required: true
+          type: string
+      responses:
+        200:
+          description: A successful response.
+          schema:
+            $ref: "#/definitions/serviceAccount"
+        default:
+          description: Generic error response.
+          schema:
+            $ref: "#/definitions/ApiError"
+      tags:
+        - ServiceAccount
+    put:
+      summary: Set Service Account Policy
+      operationId: UpdateServiceAccount
+      parameters:
+        - name: access_key
+          in: path
+          required: true
+          type: string
+        - name: body
+          in: body
+          required: true
+          schema:
+            $ref: "#/definitions/updateServiceAccountRequest"
+      responses:
+        200:
+          description: A successful response.
+        default:
+          description: Generic error response.
+          schema:
+            $ref: "#/definitions/ApiError"
+      tags:
+        - ServiceAccount
     delete:
       summary: Delete Service Account
       operationId: DeleteServiceAccount
@@ -1404,72 +1379,7 @@ paths:
         default:
           description: Generic error response.
           schema:
-            $ref: "#/definitions/error"
-      tags:
-        - ServiceAccount
-
-  /service-accounts/delete-multi:
-    delete:
-      summary: Delete Multiple Service Accounts
-      operationId: DeleteMultipleServiceAccounts
-      parameters:
-        - name: selectedSA
-          in: body
-          required: true
-          schema:
-            type: array
-            items:
-              type: string
-      responses:
-        204:
-          description: A successful response.
-        default:
-          description: Generic error response.
-          schema:
-            $ref: "#/definitions/error"
-      tags:
-        - ServiceAccount
-
-  /service-accounts/{access_key}/policy:
-    get:
-      summary: Get Service Account Policy
-      operationId: GetServiceAccountPolicy
-      parameters:
-        - name: access_key
-          in: path
-          required: true
-          type: string
-      responses:
-        200:
-          description: A successful response.
-          schema:
-            type: string
-        default:
-          description: Generic error response.
-          schema:
-            $ref: "#/definitions/error"
-      tags:
-        - ServiceAccount
-    put:
-      summary: Set Service Account Policy
-      operationId: SetServiceAccountPolicy
-      parameters:
-        - name: access_key
-          in: path
-          required: true
-          type: string
-        - name: policy
-          in: body
-          required: true
-          schema:
-            $ref: "#/definitions/addServiceAccountPolicyRequest"
-      responses:
-        200:
-          description: A successful response.
-        default:
-          description: Generic error response.
-          schema:
-            $ref: "#/definitions/error"
+            $ref: "#/definitions/ApiError"
       tags:
         - ServiceAccount
 
@@ -1478,16 +1388,8 @@ paths:
       summary: List Users
       operationId: ListUsers
       parameters:
-        - name: offset
-          in: query
-          required: false
-          type: integer
-          format: int32
-        - name: limit
-          in: query
-          required: false
-          type: integer
-          format: int32
+        - $ref: "#/parameters/offset"
+        - $ref: "#/parameters/limit"
       responses:
         200:
           description: A successful response.
@@ -1496,7 +1398,7 @@ paths:
         default:
           description: Generic error response.
           schema:
-            $ref: "#/definitions/error"
+            $ref: "#/definitions/ApiError"
       tags:
         - User
     post:
@@ -1516,7 +1418,7 @@ paths:
         default:
           description: Generic error response.
           schema:
-            $ref: "#/definitions/error"
+            $ref: "#/definitions/ApiError"
       tags:
         - User
 
@@ -1529,9 +1431,7 @@ paths:
           in: body
           required: true
           schema:
-            type: array
-            items:
-              type: string
+            $ref: "#/definitions/selectedUsers"
       responses:
         200:
           description: A successful response.
@@ -1540,7 +1440,7 @@ paths:
         default:
           description: Generic error response.
           schema:
-            $ref: "#/definitions/error"
+            $ref: "#/definitions/ApiError"
       tags:
         - User
 
@@ -1561,7 +1461,7 @@ paths:
         default:
           description: Generic error response.
           schema:
-            $ref: "#/definitions/error"
+            $ref: "#/definitions/ApiError"
       tags:
         - User
     put:
@@ -1585,7 +1485,7 @@ paths:
         default:
           description: Generic error response.
           schema:
-            $ref: "#/definitions/error"
+            $ref: "#/definitions/ApiError"
       tags:
         - User
     delete:
@@ -1602,7 +1502,7 @@ paths:
         default:
           description: Generic error response.
           schema:
-            $ref: "#/definitions/error"
+            $ref: "#/definitions/ApiError"
       tags:
         - User
 
@@ -1628,7 +1528,7 @@ paths:
         default:
           description: Generic error response.
           schema:
-            $ref: "#/definitions/error"
+            $ref: "#/definitions/ApiError"
       tags:
         - User
   /user/policy:
@@ -1643,7 +1543,7 @@ paths:
         default:
           description: Generic error response.
           schema:
-            $ref: "#/definitions/error"
+            $ref: "#/definitions/ApiError"
       tags:
         - Policy
   /user/{name}/policies:
@@ -1663,7 +1563,7 @@ paths:
         default:
           description: Generic error response.
           schema:
-            $ref: "#/definitions/error"
+            $ref: "#/definitions/ApiError"
       tags:
         - Policy
   /user/{name}/service-accounts:
@@ -1683,7 +1583,7 @@ paths:
         default:
           description: Generic error response.
           schema:
-            $ref: "#/definitions/error"
+            $ref: "#/definitions/ApiError"
       tags:
         - User
     post:
@@ -1707,7 +1607,7 @@ paths:
         default:
           description: Generic error response.
           schema:
-            $ref: "#/definitions/error"
+            $ref: "#/definitions/ApiError"
       tags:
         - User
 
@@ -1733,7 +1633,7 @@ paths:
         default:
           description: Generic error response.
           schema:
-            $ref: "#/definitions/error"
+            $ref: "#/definitions/ApiError"
       tags:
         - User
 
@@ -1753,7 +1653,7 @@ paths:
         default:
           description: Generic error response.
           schema:
-            $ref: "#/definitions/error"
+            $ref: "#/definitions/ApiError"
       tags:
         - User
 
@@ -1762,16 +1662,8 @@ paths:
       summary: List Groups
       operationId: ListGroups
       parameters:
-        - name: offset
-          in: query
-          required: false
-          type: integer
-          format: int32
-        - name: limit
-          in: query
-          required: false
-          type: integer
-          format: int32
+        - $ref: "#/parameters/offset"
+        - $ref: "#/parameters/limit"
       responses:
         200:
           description: A successful response.
@@ -1780,7 +1672,7 @@ paths:
         default:
           description: Generic error response.
           schema:
-            $ref: "#/definitions/error"
+            $ref: "#/definitions/ApiError"
       tags:
         - Group
     post:
@@ -1798,7 +1690,7 @@ paths:
         default:
           description: Generic error response.
           schema:
-            $ref: "#/definitions/error"
+            $ref: "#/definitions/ApiError"
       tags:
         - Group
 
@@ -1819,7 +1711,7 @@ paths:
         default:
           description: Generic error response.
           schema:
-            $ref: "#/definitions/error"
+            $ref: "#/definitions/ApiError"
       tags:
         - Group
     delete:
@@ -1836,7 +1728,7 @@ paths:
         default:
           description: Generic error response.
           schema:
-            $ref: "#/definitions/error"
+            $ref: "#/definitions/ApiError"
       tags:
         - Group
     put:
@@ -1860,7 +1752,7 @@ paths:
         default:
           description: Generic error response.
           schema:
-            $ref: "#/definitions/error"
+            $ref: "#/definitions/ApiError"
       tags:
         - Group
 
@@ -1869,16 +1761,8 @@ paths:
       summary: List Policies
       operationId: ListPolicies
       parameters:
-        - name: offset
-          in: query
-          required: false
-          type: integer
-          format: int32
-        - name: limit
-          in: query
-          required: false
-          type: integer
-          format: int32
+        - $ref: "#/parameters/offset"
+        - $ref: "#/parameters/limit"
       responses:
         200:
           description: A successful response.
@@ -1887,7 +1771,7 @@ paths:
         default:
           description: Generic error response.
           schema:
-            $ref: "#/definitions/error"
+            $ref: "#/definitions/ApiError"
       tags:
         - Policy
     post:
@@ -1907,7 +1791,7 @@ paths:
         default:
           description: Generic error response.
           schema:
-            $ref: "#/definitions/error"
+            $ref: "#/definitions/ApiError"
       tags:
         - Policy
 
@@ -1930,7 +1814,7 @@ paths:
         default:
           description: Generic error response.
           schema:
-            $ref: "#/definitions/error"
+            $ref: "#/definitions/ApiError"
       tags:
         - Policy
 
@@ -1953,7 +1837,7 @@ paths:
         default:
           description: Generic error response.
           schema:
-            $ref: "#/definitions/error"
+            $ref: "#/definitions/ApiError"
       tags:
         - Policy
 
@@ -1966,16 +1850,8 @@ paths:
           in: path
           required: true
           type: string
-        - name: offset
-          in: query
-          required: false
-          type: integer
-          format: int32
-        - name: limit
-          in: query
-          required: false
-          type: integer
-          format: int32
+        - $ref: "#/parameters/offset"
+        - $ref: "#/parameters/limit"
       responses:
         200:
           description: A successful response.
@@ -1984,7 +1860,7 @@ paths:
         default:
           description: Generic error response.
           schema:
-            $ref: "#/definitions/error"
+            $ref: "#/definitions/ApiError"
       tags:
         - Bucket
 
@@ -2010,7 +1886,7 @@ paths:
         default:
           description: Generic error response.
           schema:
-            $ref: "#/definitions/error"
+            $ref: "#/definitions/ApiError"
       tags:
         - Bucket
     get:
@@ -2021,16 +1897,8 @@ paths:
           in: path
           required: true
           type: string
-        - name: offset
-          in: query
-          required: false
-          type: integer
-          format: int32
-        - name: limit
-          in: query
-          required: false
-          type: integer
-          format: int32
+        - $ref: "#/parameters/offset"
+        - $ref: "#/parameters/limit"
       responses:
         200:
           description: A successful response.
@@ -2039,7 +1907,7 @@ paths:
         default:
           description: Generic error response.
           schema:
-            $ref: "#/definitions/error"
+            $ref: "#/definitions/ApiError"
       tags:
         - Bucket
     delete:
@@ -2063,7 +1931,7 @@ paths:
         default:
           description: Generic error response.
           schema:
-            $ref: "#/definitions/error"
+            $ref: "#/definitions/ApiError"
       tags:
         - Bucket
 
@@ -2076,16 +1944,8 @@ paths:
           in: path
           required: true
           type: string
-        - name: offset
-          in: query
-          required: false
-          type: integer
-          format: int32
-        - name: limit
-          in: query
-          required: false
-          type: integer
-          format: int32
+        - $ref: "#/parameters/offset"
+        - $ref: "#/parameters/limit"
       responses:
         200:
           description: A successful response.
@@ -2096,7 +1956,7 @@ paths:
         default:
           description: Generic error response.
           schema:
-            $ref: "#/definitions/error"
+            $ref: "#/definitions/ApiError"
       tags:
         - Bucket
 
@@ -2117,7 +1977,7 @@ paths:
         default:
           description: Generic error response.
           schema:
-            $ref: "#/definitions/error"
+            $ref: "#/definitions/ApiError"
       tags:
         - Policy
     delete:
@@ -2134,7 +1994,7 @@ paths:
         default:
           description: Generic error response.
           schema:
-            $ref: "#/definitions/error"
+            $ref: "#/definitions/ApiError"
       tags:
         - Policy
 
@@ -2143,16 +2003,8 @@ paths:
       summary: List Configurations
       operationId: ListConfig
       parameters:
-        - name: offset
-          in: query
-          required: false
-          type: integer
-          format: int32
-        - name: limit
-          in: query
-          required: false
-          type: integer
-          format: int32
+        - $ref: "#/parameters/offset"
+        - $ref: "#/parameters/limit"
       responses:
         200:
           description: A successful response.
@@ -2161,7 +2013,7 @@ paths:
         default:
           description: Generic error response.
           schema:
-            $ref: "#/definitions/error"
+            $ref: "#/definitions/ApiError"
       tags:
         - Configuration
 
@@ -2181,7 +2033,7 @@ paths:
         default:
           description: Generic error response.
           schema:
-            $ref: "#/definitions/error"
+            $ref: "#/definitions/ApiError"
       tags:
         - Policy
 
@@ -2201,7 +2053,7 @@ paths:
         default:
           description: Generic error response.
           schema:
-            $ref: "#/definitions/error"
+            $ref: "#/definitions/ApiError"
       tags:
         - Policy
 
@@ -2224,7 +2076,7 @@ paths:
         default:
           description: Generic error response.
           schema:
-            $ref: "#/definitions/error"
+            $ref: "#/definitions/ApiError"
       tags:
         - Configuration
     put:
@@ -2248,7 +2100,7 @@ paths:
         default:
           description: Generic error response.
           schema:
-            $ref: "#/definitions/error"
+            $ref: "#/definitions/ApiError"
       tags:
         - Configuration
 
@@ -2269,7 +2121,7 @@ paths:
         default:
           description: Generic error response.
           schema:
-            $ref: "#/definitions/error"
+            $ref: "#/definitions/ApiError"
       tags:
         - Configuration
 
@@ -2285,7 +2137,7 @@ paths:
         default:
           description: Generic error response.
           schema:
-            $ref: "#/definitions/error"
+            $ref: "#/definitions/ApiError"
       tags:
         - Configuration
   /configs/import:
@@ -2304,7 +2156,7 @@ paths:
         default:
           description: Generic error response.
           schema:
-            $ref: "#/definitions/error"
+            $ref: "#/definitions/ApiError"
       tags:
         - Configuration
   /service/restart:
@@ -2317,163 +2169,9 @@ paths:
         default:
           description: Generic error response.
           schema:
-            $ref: "#/definitions/error"
+            $ref: "#/definitions/ApiError"
       tags:
         - Service
-  /profiling/start:
-    post:
-      summary: Start recording profile data
-      operationId: ProfilingStart
-      parameters:
-        - name: body
-          in: body
-          required: true
-          schema:
-            $ref: "#/definitions/profilingStartRequest"
-      responses:
-        201:
-          description: A successful response.
-          schema:
-            $ref: "#/definitions/startProfilingList"
-        default:
-          description: Generic error response.
-          schema:
-            $ref: "#/definitions/error"
-      tags:
-        - Profile
-
-  /profiling/stop:
-    post:
-      summary: Stop and download profile data
-      operationId: ProfilingStop
-      produces:
-        - application/zip
-      responses:
-        201:
-          description: A successful response.
-          schema:
-            type: file
-        default:
-          description: Generic error response.
-          schema:
-            $ref: "#/definitions/error"
-      tags:
-        - Profile
-  /subnet/registration-token:
-    get:
-      summary: Subnet registraton token
-      operationId: SubnetRegToken
-      responses:
-        200:
-          description: A successful response.
-          schema:
-            $ref: "#/definitions/SubnetRegTokenResponse"
-        default:
-          description: Generic error response.
-          schema:
-            $ref: "#/definitions/error"
-      tags:
-        - Subnet
-  /subnet/info:
-    get:
-      summary: Subnet info
-      operationId: SubnetInfo
-      responses:
-        200:
-          description: A successful response.
-          schema:
-            $ref: "#/definitions/license"
-        default:
-          description: Generic error response.
-          schema:
-            $ref: "#/definitions/error"
-      tags:
-        - Subnet
-  /subnet/apikey:
-    get:
-      summary: Subnet api key
-      operationId: SubnetApiKey
-      parameters:
-        - name: token
-          in: query
-          required: true
-          type: string
-      responses:
-        200:
-          description: A successful response.
-          schema:
-            $ref: "#/definitions/apiKey"
-        default:
-          description: Generic error response.
-          schema:
-            $ref: "#/definitions/error"
-      tags:
-        - Subnet
-  /subnet/register:
-    post:
-      summary: Register cluster with Subnet
-      operationId: SubnetRegister
-      parameters:
-        - name: body
-          in: body
-          required: true
-          schema:
-            $ref: "#/definitions/subnetRegisterRequest"
-      responses:
-        200:
-          description: A successful response.
-        #          schema:
-        #            $ref: "#/definitions/subnetRegisterResponse"
-        default:
-          description: Generic error response.
-          schema:
-            $ref: "#/definitions/error"
-      tags:
-        - Subnet
-
-  /subnet/login:
-    post:
-      summary: Login to subnet
-      operationId: SubnetLogin
-      parameters:
-        - name: body
-          in: body
-          required: true
-          schema:
-            $ref: "#/definitions/subnetLoginRequest"
-      responses:
-        200:
-          description: A successful response.
-          schema:
-            $ref: "#/definitions/subnetLoginResponse"
-        default:
-          description: Generic error response.
-          schema:
-            $ref: "#/definitions/error"
-      tags:
-        - Subnet
-
-  /subnet/login/mfa:
-    post:
-      summary: Login to subnet using mfa
-      operationId: SubnetLoginMFA
-      parameters:
-        - name: body
-          in: body
-          required: true
-          schema:
-            $ref: "#/definitions/subnetLoginMFARequest"
-      responses:
-        200:
-          description: A successful response.
-          schema:
-            $ref: "#/definitions/subnetLoginResponse"
-        default:
-          description: Generic error response.
-          schema:
-            $ref: "#/definitions/error"
-      tags:
-        - Subnet
 
   /admin/info:
     get:
@@ -2493,7 +2191,7 @@ paths:
         default:
           description: Generic error response.
           schema:
-            $ref: "#/definitions/error"
+            $ref: "#/definitions/ApiError"
       tags:
         - System
 
@@ -2525,7 +2223,7 @@ paths:
         default:
           description: Generic error response.
           schema:
-            $ref: "#/definitions/error"
+            $ref: "#/definitions/ApiError"
       tags:
         - System
 
@@ -2541,7 +2239,7 @@ paths:
         default:
           description: Generic error response.
           schema:
-            $ref: "#/definitions/error"
+            $ref: "#/definitions/ApiError"
       tags:
         - System
 
@@ -2557,7 +2255,7 @@ paths:
         default:
           description: Generic error response.
           schema:
-            $ref: "#/definitions/error"
+            $ref: "#/definitions/ApiError"
       tags:
         - Configuration
     post:
@@ -2577,229 +2275,9 @@ paths:
         default:
           description: Generic error response.
           schema:
-            $ref: "#/definitions/error"
+            $ref: "#/definitions/ApiError"
       tags:
         - Configuration
-
-  /admin/site-replication:
-    get:
-      summary: Get list of Replication Sites
-      operationId: GetSiteReplicationInfo
-      responses:
-        200:
-          description: A successful response.
-          schema:
-            $ref: "#/definitions/siteReplicationInfoResponse"
-        default:
-          description: Generic error response.
-          schema:
-            $ref: "#/definitions/error"
-      tags:
-        - SiteReplication
-    post:
-      summary: Add a Replication Site
-      operationId: SiteReplicationInfoAdd
-      parameters:
-        - name: body
-          in: body
-          required: true
-          schema:
-            $ref: "#/definitions/siteReplicationAddRequest"
-      responses:
-        200:
-          description: A successful response.
-          schema:
-            $ref: "#/definitions/siteReplicationAddResponse"
-        default:
-          description: Generic error response.
-          schema:
-            $ref: "#/definitions/error"
-      tags:
-        - SiteReplication
-    put:
-      summary: Edit a Replication Site
-      operationId: SiteReplicationEdit
-      parameters:
-        - name: body
-          in: body
-          required: true
-          schema:
-            $ref: "#/definitions/peerInfo"
-      responses:
-        200:
-          description: A successful response.
-          schema:
-            $ref: "#/definitions/peerSiteEditResponse"
-        default:
-          description: Generic error response.
-          schema:
-            $ref: "#/definitions/error"
-      tags:
-        - SiteReplication
-    delete:
-      summary: Remove a Replication Site
-      operationId: SiteReplicationRemove
-      parameters:
-        - name: body
-          in: body
-          required: true
-          schema:
-            $ref: "#/definitions/peerInfoRemove"
-      responses:
-        204:
-          description: A successful response.
-          schema:
-            $ref: "#/definitions/peerSiteRemoveResponse"
-        default:
-          description: Generic error response.
-          schema:
-            $ref: "#/definitions/error"
-      tags:
-        - SiteReplication
-
-  /admin/site-replication/status:
-    get:
-      summary: Display overall site replication status
-      operationId: GetSiteReplicationStatus
-      parameters:
-        - name: buckets
-          description: Include Bucket stats
-          in: query
-          type: boolean
-          default: true
-        - name: groups
-          description: Include Group stats
-          in: query
-          type: boolean
-          default: true
-        - name: policies
-          description: Include Policies stats
-          in: query
-          type: boolean
-          default: true
-        - name: users
-          description: Include Policies stats
-          in: query
-          type: boolean
-          default: true
-        - name: entityType
-          description: Entity Type to lookup
-          in: query
-          type: string
-          required: false
-        - name: entityValue
-          description: Entity Value to lookup
-          in: query
-          type: string
-          required: false
-      responses:
-        200:
-          description: A successful response.
-          schema:
-            $ref: "#/definitions/siteReplicationStatusResponse"
-        default:
-          description: Generic error response.
-          schema:
-            $ref: "#/definitions/error"
-      tags:
-        - SiteReplication
-
-  /admin/tiers:
-    get:
-      summary: Returns a list of tiers for ilm
-      operationId: TiersList
-      responses:
-        200:
-          description: A successful response.
-          schema:
-            $ref: "#/definitions/tierListResponse"
-        default:
-          description: Generic error response.
-          schema:
-            $ref: "#/definitions/error"
-      tags:
-        - Tiering
-    post:
-      summary: Allows to configure a new tier
-      operationId: AddTier
-      parameters:
-        - name: body
-          in: body
-          required: true
-          schema:
-            $ref: "#/definitions/tier"
-      responses:
-        201:
-          description: A successful response.
-        default:
-          description: Generic error response.
-          schema:
-            $ref: "#/definitions/error"
-      tags:
-        - Tiering
-
-  /admin/tiers/{type}/{name}:
-    get:
-      summary: Get Tier
-      operationId: GetTier
-      parameters:
-        - name: type
-          in: path
-          required: true
-          type: string
-          enum:
-            - s3
-            - gcs
-            - azure
-            - minio
-        - name: name
-          in: path
-          required: true
-          type: string
-      responses:
-        200:
-          description: A successful response.
-          schema:
-            $ref: "#/definitions/tier"
-        default:
-          description: Generic error response.
-          schema:
-            $ref: "#/definitions/error"
-      tags:
-        - Tiering
-
-  /admin/tiers/{type}/{name}/credentials:
-    put:
-      summary: Edit Tier Credentials
-      operationId: EditTierCredentials
-      parameters:
-        - name: type
-          in: path
-          required: true
-          type: string
-          enum:
-            - s3
-            - gcs
-            - azure
-            - minio
-        - name: name
-          in: path
-          required: true
-          type: string
-        - name: body
-          in: body
-          required: true
-          schema:
-            $ref: "#/definitions/tierCredentialsRequest"
-      responses:
-        200:
-          description: A successful response.
-        default:
-          description: Generic error response.
-          schema:
-            $ref: "#/definitions/error"
-      tags:
-        - Tiering
 
   /nodes:
     get:
@@ -2815,7 +2293,7 @@ paths:
         default:
           description: Generic error response.
           schema:
-            $ref: "#/definitions/error"
+            $ref: "#/definitions/ApiError"
       tags:
         - System
 
@@ -2831,7 +2309,7 @@ paths:
         default:
           description: Generic error response.
           schema:
-            $ref: "#/definitions/error"
+            $ref: "#/definitions/ApiError"
       tags:
         - Bucket
     post:
@@ -2849,7 +2327,7 @@ paths:
         default:
           description: Generic error response.
           schema:
-            $ref: "#/definitions/error"
+            $ref: "#/definitions/ApiError"
       tags:
         - Bucket
 
@@ -2870,7 +2348,7 @@ paths:
         default:
           description: Generic error response.
           schema:
-            $ref: "#/definitions/error"
+            $ref: "#/definitions/ApiError"
       tags:
         - Bucket
   /remote-buckets/{source-bucket-name}/{arn}:
@@ -2892,7 +2370,7 @@ paths:
         default:
           description: Generic error response.
           schema:
-            $ref: "#/definitions/error"
+            $ref: "#/definitions/ApiError"
       tags:
         - Bucket
   /logs/search:
@@ -2920,9 +2398,12 @@ paths:
         - name: order
           in: query
           type: string
-          enum: [ timeDesc, timeAsc ]
+          enum: [timeDesc, timeAsc]
           default: timeDesc
         - name: timeStart
+          in: query
+          type: string
+        - name: timeEnd
           in: query
           type: string
       responses:
@@ -2933,7 +2414,7 @@ paths:
         default:
           description: Generic error response.
           schema:
-            $ref: "#/definitions/error"
+            $ref: "#/definitions/ApiError"
       tags:
         - Logging
 
@@ -2949,7 +2430,7 @@ paths:
         default:
           description: Generic error response.
           schema:
-            $ref: "#/definitions/error"
+            $ref: "#/definitions/ApiError"
       tags:
         - KMS
   /kms/metrics:
@@ -2964,7 +2445,7 @@ paths:
         default:
           description: Generic error response.
           schema:
-            $ref: "#/definitions/error"
+            $ref: "#/definitions/ApiError"
       tags:
         - KMS
   /kms/apis:
@@ -2979,7 +2460,7 @@ paths:
         default:
           description: Generic error response.
           schema:
-            $ref: "#/definitions/error"
+            $ref: "#/definitions/ApiError"
       tags:
         - KMS
   /kms/version:
@@ -2994,7 +2475,7 @@ paths:
         default:
           description: Generic error response.
           schema:
-            $ref: "#/definitions/error"
+            $ref: "#/definitions/ApiError"
       tags:
         - KMS
   /kms/keys:
@@ -3013,7 +2494,7 @@ paths:
         default:
           description: Generic error response.
           schema:
-            $ref: "#/definitions/error"
+            $ref: "#/definitions/ApiError"
       tags:
         - KMS
     get:
@@ -3032,7 +2513,7 @@ paths:
         default:
           description: Generic error response.
           schema:
-            $ref: "#/definitions/error"
+            $ref: "#/definitions/ApiError"
       tags:
         - KMS
   /kms/keys/{name}:
@@ -3053,246 +2534,7 @@ paths:
         default:
           description: Generic error response.
           schema:
-            $ref: "#/definitions/error"
-      tags:
-        - KMS
-    delete:
-      summary: KMS delete key
-      operationId: KMSDeleteKey
-      parameters:
-        - name: name
-          description: KMS key name
-          in: path
-          required: true
-          type: string
-      responses:
-        200:
-          description: A successful response.
-        default:
-          description: Generic error response.
-          schema:
-            $ref: "#/definitions/error"
-      tags:
-        - KMS
-  /kms/keys/{name}/import:
-    post:
-      summary: KMS import key
-      operationId: KMSImportKey
-      parameters:
-        - name: body
-          in: body
-          required: true
-          schema:
-            $ref: "#/definitions/kmsImportKeyRequest"
-        - name: name
-          description: KMS key name
-          in: path
-          required: true
-          type: string
-      responses:
-        201:
-          description: A successful response.
-        default:
-          description: Generic error response.
-          schema:
-            $ref: "#/definitions/error"
-      tags:
-        - KMS
-  /kms/policies:
-    post:
-      summary: KMS set policy
-      operationId: KMSSetPolicy
-      parameters:
-        - name: body
-          in: body
-          required: true
-          schema:
-            $ref: "#/definitions/kmsSetPolicyRequest"
-      responses:
-        200:
-          description: A successful response.
-        default:
-          description: Generic error response.
-          schema:
-            $ref: "#/definitions/error"
-      tags:
-        - KMS
-    get:
-      summary: KMS list policies
-      operationId: KMSListPolicies
-      parameters:
-        - name: pattern
-          description: pattern to retrieve policies
-          in: query
-          type: string
-      responses:
-        200:
-          description: A successful response.
-          schema:
-            $ref: "#/definitions/kmsListPoliciesResponse"
-        default:
-          description: Generic error response.
-          schema:
-            $ref: "#/definitions/error"
-      tags:
-        - KMS
-  /kms/policies/{name}:
-    get:
-      summary: KMS get policy
-      operationId: KMSGetPolicy
-      parameters:
-        - name: name
-          description: KMS policy name
-          in: path
-          required: true
-          type: string
-      responses:
-        200:
-          description: A successful response.
-          schema:
-            $ref: "#/definitions/kmsGetPolicyResponse"
-        default:
-          description: Generic error response.
-          schema:
-            $ref: "#/definitions/error"
-      tags:
-        - KMS
-    delete:
-      summary: KMS delete policy
-      operationId: KMSDeletePolicy
-      parameters:
-        - name: name
-          description: KMS policy name
-          in: path
-          required: true
-          type: string
-      responses:
-        200:
-          description: A successful response.
-        default:
-          description: Generic error response.
-          schema:
-            $ref: "#/definitions/error"
-      tags:
-        - KMS
-  /kms/policies/{name}/assign:
-    post:
-      summary: KMS assign policy
-      operationId: KMSAssignPolicy
-      parameters:
-        - name: body
-          in: body
-          required: true
-          schema:
-            $ref: "#/definitions/kmsAssignPolicyRequest"
-        - name: name
-          description: KMS policy name
-          in: path
-          required: true
-          type: string
-      responses:
-        200:
-          description: A successful response.
-        default:
-          description: Generic error response.
-          schema:
-            $ref: "#/definitions/error"
-      tags:
-        - KMS
-  /kms/policies/{name}/describe:
-    get:
-      summary: KMS describe policy
-      operationId: KMSDescribePolicy
-      parameters:
-        - name: name
-          description: KMS policy name
-          in: path
-          required: true
-          type: string
-      responses:
-        200:
-          description: A successful response.
-          schema:
-            $ref: "#/definitions/kmsDescribePolicyResponse"
-        default:
-          description: Generic error response.
-          schema:
-            $ref: "#/definitions/error"
-      tags:
-        - KMS
-  /kms/identities/{name}:
-    delete:
-      summary: KMS delete identity
-      operationId: KMSDeleteIdentity
-      parameters:
-        - name: name
-          description: KMS identity name
-          in: path
-          required: true
-          type: string
-      responses:
-        200:
-          description: A successful response.
-        default:
-          description: Generic error response.
-          schema:
-            $ref: "#/definitions/error"
-      tags:
-        - KMS
-  /kms/identities/{name}/describe:
-    get:
-      summary: KMS describe identity
-      operationId: KMSDescribeIdentity
-      parameters:
-        - name: name
-          description: KMS identity name
-          in: path
-          required: true
-          type: string
-      responses:
-        200:
-          description: A successful response.
-          schema:
-            $ref: "#/definitions/kmsDescribeIdentityResponse"
-        default:
-          description: Generic error response.
-          schema:
-            $ref: "#/definitions/error"
-      tags:
-        - KMS
-  /kms/describe-self/identity:
-    get:
-      summary: KMS describe self identity
-      operationId: KMSDescribeSelfIdentity
-      responses:
-        200:
-          description: A successful response.
-          schema:
-            $ref: "#/definitions/kmsDescribeSelfIdentityResponse"
-        default:
-          description: Generic error response.
-          schema:
-            $ref: "#/definitions/error"
-      tags:
-        - KMS
-  /kms/identities:
-    get:
-      summary: KMS list identities
-      operationId: KMSListIdentities
-      parameters:
-        - name: pattern
-          description: pattern to retrieve identities
-          in: query
-          type: string
-      responses:
-        200:
-          description: A successful response.
-          schema:
-            $ref: "#/definitions/kmsListIdentitiesResponse"
-        default:
-          description: Generic error response.
-          schema:
-            $ref: "#/definitions/error"
+            $ref: "#/definitions/ApiError"
       tags:
         - KMS
 
@@ -3324,13 +2566,15 @@ paths:
         default:
           description: Generic error response.
           schema:
-            $ref: "#/definitions/error"
+            $ref: "#/definitions/ApiError"
       tags:
         - Inspect
   /idp/{type}:
     post:
       summary: Create IDP Configuration
       operationId: CreateConfiguration
+      consumes:
+        - application/json
       parameters:
         - name: type
           description: IDP Configuration Type
@@ -3350,7 +2594,7 @@ paths:
         default:
           description: Generic error response.
           schema:
-            $ref: "#/definitions/error"
+            $ref: "#/definitions/ApiError"
       tags:
         - idp
     get:
@@ -3370,7 +2614,7 @@ paths:
         default:
           description: Generic error response.
           schema:
-            $ref: "#/definitions/error"
+            $ref: "#/definitions/ApiError"
       tags:
         - idp
   /idp/{type}/{name}:
@@ -3396,7 +2640,7 @@ paths:
         default:
           description: Generic error response.
           schema:
-            $ref: "#/definitions/error"
+            $ref: "#/definitions/ApiError"
       tags:
         - idp
     delete:
@@ -3421,12 +2665,14 @@ paths:
         default:
           description: Generic error response.
           schema:
-            $ref: "#/definitions/error"
+            $ref: "#/definitions/ApiError"
       tags:
         - idp
     put:
       summary: Update IDP Configuration
       operationId: UpdateConfiguration
+      consumes:
+        - application/json
       parameters:
         - name: body
           in: body
@@ -3451,7 +2697,7 @@ paths:
         default:
           description: Generic error response.
           schema:
-            $ref: "#/definitions/error"
+            $ref: "#/definitions/ApiError"
       tags:
         - idp
 
@@ -3473,7 +2719,7 @@ paths:
         default:
           description: Generic error response.
           schema:
-            $ref: "#/definitions/error"
+            $ref: "#/definitions/ApiError"
       tags:
         - idp
 
@@ -3507,44 +2753,33 @@ paths:
         default:
           description: Generic error response.
           schema:
-            $ref: "#/definitions/error"
+            $ref: "#/definitions/ApiError"
       tags:
         - release
 
-  /support/callhome:
+  /download-shared-object/{url}:
     get:
-      summary: Get Callhome current status
-      operationId: GetCallHomeOptionValue
+      summary: Downloads an object from a presigned url
+      operationId: DownloadSharedObject
+      security: []
+      produces:
+        - application/octet-stream
+      parameters:
+        - name: url
+          in: path
+          required: true
+          type: string
       responses:
         200:
           description: A successful response.
           schema:
-            $ref: "#/definitions/callHomeGetResponse"
+            type: file
         default:
           description: Generic error response.
           schema:
-            $ref: "#/definitions/error"
+            $ref: "#/definitions/ApiError"
       tags:
-        - Support
-
-    put:
-      summary: Sets callhome status
-      operationId: SetCallHomeStatus
-      parameters:
-        - name: body
-          in: body
-          required: true
-          schema:
-            $ref: "#/definitions/callHomeSetStatus"
-      responses:
-        204:
-          description: A successful response.
-        default:
-          description: Generic error response.
-          schema:
-            $ref: "#/definitions/error"
-      tags:
-        - Support
+        - Public
 
 definitions:
   accountChangePasswordRequest:
@@ -3756,20 +2991,14 @@ definitions:
       locking:
         type: boolean
       versioning:
-        type: boolean
+        $ref: "#/definitions/setBucketVersioning"
       quota:
         $ref: "#/definitions/setBucketQuota"
       retention:
         $ref: "#/definitions/putBucketRetentionRequest"
-  error:
+  ApiError:
     type: object
-    required:
-      - message
-      - detailedMessage
     properties:
-      code:
-        type: integer
-        format: int32
       message:
         type: string
       detailedMessage:
@@ -3800,6 +3029,10 @@ definitions:
         items:
           $ref: "#/definitions/user"
         title: list of resulting users
+  selectedUsers:
+    type: array
+    items:
+      type: string
   addUserRequest:
     type: object
     required:
@@ -3915,7 +3148,6 @@ definitions:
 
   iamEntity:
     type: string
-    pattern: '^[\w+=,.@-]{1,64}$'
 
   addPolicyRequest:
     type: object
@@ -3928,12 +3160,22 @@ definitions:
       policy:
         type: string
 
-  addServiceAccountPolicyRequest:
+  updateServiceAccountRequest:
     type: object
     required:
       - policy
     properties:
       policy:
+        type: string
+      secretKey:
+        type: string
+      name:
+        type: string
+      description:
+        type: string
+      expiry:
+        type: string
+      status:
         type: string
 
   listPoliciesResponse:
@@ -3997,7 +3239,7 @@ definitions:
       value:
         type: string
       env_override:
-          $ref: "#/definitions/envOverride"
+        $ref: "#/definitions/envOverride"
   envOverride:
     type: object
     properties:
@@ -4044,6 +3286,9 @@ definitions:
       - put
       - delete
       - get
+      - replica
+      - ilm
+      - scanner
   notificationConfig:
     type: object
     required:
@@ -4213,6 +3458,8 @@ definitions:
         type: string
       tags:
         type: string
+      replicateExistingObjects:
+        type: boolean
       replicateDeleteMarkers:
         type: boolean
       replicateDeletes:
@@ -4346,7 +3593,7 @@ definitions:
     properties:
       loginStrategy:
         type: string
-        enum: [ form, redirect, service-account, redirect-service-account ]
+        enum: [form, redirect, service-account, redirect-service-account]
       redirectRules:
         type: array
         items:
@@ -4445,7 +3692,7 @@ definitions:
           type: string
       status:
         type: string
-        enum: [ ok ]
+        enum: [ok]
       operator:
         type: boolean
       distributedMode:
@@ -4476,7 +3723,7 @@ definitions:
           type: string
       values:
         type: array
-        items: { }
+        items: {}
   resultTarget:
     type: object
     properties:
@@ -4619,7 +3866,7 @@ definitions:
       onlineDrives:
         type: integer
       offlineDrives:
-        type: integer    
+        type: integer
   arnsResponse:
     type: object
     properties:
@@ -4833,16 +4080,53 @@ definitions:
         type: array
         items:
           type: string
+  serviceAccount:
+    type: object
+    properties:
+      parentUser:
+        type: string
+      accountStatus:
+        type: string
+      impliedPolicy:
+        type: boolean
+      policy:
+        type: string
+      name:
+        type: string
+      description:
+        type: string
+      expiration:
+        type: string
   serviceAccounts:
     type: array
     items:
-      type: string
+      type: object
+      properties:
+        accountStatus:
+          type: string
+        name:
+          type: string
+        description:
+          type: string
+        expiration:
+          type: string
+        accessKey:
+          type: string
+
   serviceAccountRequest:
     type: object
     properties:
       policy:
         type: string
         title: "policy to be applied to the Service Account if any"
+      name:
+        type: string
+      description:
+        type: string
+      expiry:
+        type: string
+      comment:
+        type: string
   serviceAccountRequestCreds:
     type: object
     properties:
@@ -4852,6 +4136,14 @@ definitions:
       accessKey:
         type: string
       secretKey:
+        type: string
+      name:
+        type: string
+      description:
+        type: string
+      expiry:
+        type: string
+      comment:
         type: string
   serviceAccountCreds:
     type: object
@@ -4887,7 +4179,7 @@ definitions:
         type: string
       service:
         type: string
-        enum: [ replication ]
+        enum: [replication]
       syncMode:
         type: string
       bandwidth:
@@ -4961,8 +4253,16 @@ definitions:
   setBucketVersioning:
     type: object
     properties:
-      versioning:
+      enabled:
         type: boolean
+      excludePrefixes:
+        type: array
+        maxLength: 10
+        items:
+          type: string
+      excludeFolders:
+        type: boolean
+
   bucketObLockingResponse:
     type: object
     properties:
@@ -5055,235 +4355,6 @@ definitions:
         type: integer
         format: int32
 
-  bucketLifecycleResponse:
-    type: object
-    properties:
-      lifecycle:
-        type: array
-        items:
-          $ref: "#/definitions/objectBucketLifecycle"
-
-  expirationResponse:
-    type: object
-    properties:
-      date:
-        type: string
-      days:
-        type: integer
-        format: int64
-      delete_marker:
-        type: boolean
-      noncurrent_expiration_days:
-        type: integer
-        format: int64
-
-  transitionResponse:
-    type: object
-    properties:
-      date:
-        type: string
-      storage_class:
-        type: string
-      days:
-        type: integer
-        format: int64
-      noncurrent_transition_days:
-        type: integer
-        format: int64
-      noncurrent_storage_class:
-        type: string
-
-  lifecycleTag:
-    type: object
-    properties:
-      key:
-        type: string
-      value:
-        type: string
-
-  objectBucketLifecycle:
-    type: object
-    properties:
-      id:
-        type: string
-      prefix:
-        type: string
-      status:
-        type: string
-      expiration:
-        $ref: "#/definitions/expirationResponse"
-      transition:
-        $ref: "#/definitions/transitionResponse"
-      tags:
-        type: array
-        items:
-          $ref: "#/definitions/lifecycleTag"
-
-  addBucketLifecycle:
-    type: object
-    properties:
-      type:
-        description: ILM Rule type (Expiry or transition)
-        type: string
-        enum:
-          - expiry
-          - transition
-      prefix:
-        description: Non required field, it matches a prefix to perform ILM operations on it
-        type: string
-      tags:
-        description: Non required field, tags to match ILM files
-        type: string
-      expiry_days:
-        description: Required in case of expiry_date or transition fields are not set. it defines an expiry days for ILM
-        type: integer
-        format: int32
-        default: 0
-      transition_days:
-        description: Required in case of transition_date or expiry fields are not set. it defines a transition days for ILM
-        type: integer
-        format: int32
-        default: 0
-      storage_class:
-        description: Required only in case of transition is set. it refers to a tier
-        type: string
-      disable:
-        description: Non required, toggle to disable or enable rule
-        type: boolean
-      expired_object_delete_marker:
-        description: Non required, toggle to disable or enable rule
-        type: boolean
-      noncurrentversion_expiration_days:
-        description: Non required, can be set in case of expiration is enabled
-        type: integer
-        format: int32
-        default: 0
-      noncurrentversion_transition_days:
-        description: Non required, can be set in case of transition is enabled
-        type: integer
-        format: int32
-        default: 0
-      noncurrentversion_transition_storage_class:
-        description: Non required, can be set in case of transition is enabled
-        type: string
-
-  updateBucketLifecycle:
-    type: object
-    required:
-      - type
-    properties:
-      type:
-        description: ILM Rule type (Expiry or transition)
-        type: string
-        enum:
-          - expiry
-          - transition
-      prefix:
-        description: Non required field, it matches a prefix to perform ILM operations on it
-        type: string
-      tags:
-        description: Non required field, tags to match ILM files
-        type: string
-      expiry_days:
-        description: Required in case of expiry_date or transition fields are not set. it defines an expiry days for ILM
-        type: integer
-        format: int32
-        default: 0
-      transition_days:
-        description: Required in case of transition_date or expiry fields are not set. it defines a transition days for ILM
-        type: integer
-        format: int32
-        default: 0
-      storage_class:
-        description: Required only in case of transition is set. it refers to a tier
-        type: string
-      disable:
-        description: Non required, toggle to disable or enable rule
-        type: boolean
-      expired_object_delete_marker:
-        description: Non required, toggle to disable or enable rule
-        type: boolean
-      noncurrentversion_expiration_days:
-        description: Non required, can be set in case of expiration is enabled
-        type: integer
-        format: int32
-        default: 0
-      noncurrentversion_transition_days:
-        description: Non required, can be set in case of transition is enabled
-        type: integer
-        format: int32
-        default: 0
-      noncurrentversion_transition_storage_class:
-        description: Non required, can be set in case of transition is enabled
-        type: string
-
-  addMultiBucketLifecycle:
-    type: object
-    required:
-      - buckets
-      - type
-    properties:
-      buckets:
-        type: array
-        items:
-          type: string
-      type:
-        description: ILM Rule type (Expiry or transition)
-        type: string
-        enum:
-          - expiry
-          - transition
-      prefix:
-        description: Non required field, it matches a prefix to perform ILM operations on it
-        type: string
-      tags:
-        description: Non required field, tags to match ILM files
-        type: string
-      expiry_days:
-        description: Required in case of expiry_date or transition fields are not set. it defines an expiry days for ILM
-        type: integer
-        format: int32
-        default: 0
-      transition_days:
-        description: Required in case of transition_date or expiry fields are not set. it defines a transition days for ILM
-        type: integer
-        format: int32
-        default: 0
-      storage_class:
-        description: Required only in case of transition is set. it refers to a tier
-        type: string
-      expired_object_delete_marker:
-        description: Non required, toggle to disable or enable rule
-        type: boolean
-      noncurrentversion_expiration_days:
-        description: Non required, can be set in case of expiration is enabled
-        type: integer
-        format: int32
-        default: 0
-      noncurrentversion_transition_days:
-        description: Non required, can be set in case of transition is enabled
-        type: integer
-        format: int32
-        default: 0
-      noncurrentversion_transition_storage_class:
-        description: Non required, can be set in case of transition is enabled
-        type: string
-
-  multicycleResultItem:
-    type: object
-    properties:
-      bucketName:
-        type: string
-      error:
-        type: string
-
-  multiLifecycleResult:
-    properties:
-      results:
-        type: array
-        items:
-          $ref: "#/definitions/multicycleResultItem"
-
   prefixAccessPair:
     type: object
     properties:
@@ -5345,104 +4416,6 @@ definitions:
       bucket_name:
         type: string
 
-  tier_s3:
-    type: object
-    properties:
-      name:
-        type: string
-      endpoint:
-        type: string
-      accesskey:
-        type: string
-      secretkey:
-        type: string
-      bucket:
-        type: string
-      prefix:
-        type: string
-      region:
-        type: string
-      storageclass:
-        type: string
-      usage:
-        type: string
-      objects:
-        type: string
-      versions:
-        type: string
-
-  tier_minio:
-    type: object
-    properties:
-      name:
-        type: string
-      endpoint:
-        type: string
-      accesskey:
-        type: string
-      secretkey:
-        type: string
-      bucket:
-        type: string
-      prefix:
-        type: string
-      region:
-        type: string
-      storageclass:
-        type: string
-      usage:
-        type: string
-      objects:
-        type: string
-      versions:
-        type: string
-
-  tier_azure:
-    type: object
-    properties:
-      name:
-        type: string
-      endpoint:
-        type: string
-      accountname:
-        type: string
-      accountkey:
-        type: string
-      bucket:
-        type: string
-      prefix:
-        type: string
-      region:
-        type: string
-      usage:
-        type: string
-      objects:
-        type: string
-      versions:
-        type: string
-
-  tier_gcs:
-    type: object
-    properties:
-      name:
-        type: string
-      endpoint:
-        type: string
-      creds:
-        type: string
-      bucket:
-        type: string
-      prefix:
-        type: string
-      region:
-        type: string
-      usage:
-        type: string
-      objects:
-        type: string
-      versions:
-        type: string
-
   deleteFile:
     type: object
     properties:
@@ -5462,51 +4435,6 @@ definitions:
         type: string
       recursive:
         type: boolean
-
-  tier:
-    type: object
-    properties:
-      status:
-        type: boolean
-      type:
-        type: string
-        enum:
-          - s3
-          - gcs
-          - azure
-          - minio
-          - unsupported
-      s3:
-        type: object
-        $ref: "#/definitions/tier_s3"
-      gcs:
-        type: object
-        $ref: "#/definitions/tier_gcs"
-      azure:
-        type: object
-        $ref: "#/definitions/tier_azure"
-      minio:
-        type: object
-        $ref: "#/definitions/tier_minio"
-
-  tierListResponse:
-    type: object
-    properties:
-      items:
-        type: array
-        items:
-          $ref: "#/definitions/tier"
-
-  tierCredentialsRequest:
-    type: object
-    properties:
-      access_key:
-        type: string
-      secret_key:
-        type: string
-      creds:
-        type: string
-        description: a base64 encoded value
 
   rewindItem:
     type: object
@@ -5570,85 +4498,6 @@ definitions:
         type: object
         additionalProperties: true
 
-  subnetLoginResponse:
-    type: object
-    properties:
-      access_token:
-        type: string
-      organizations:
-        type: array
-        items:
-          $ref: "#/definitions/subnetOrganization"
-      mfa_token:
-        type: string
-      registered:
-        type: boolean
-
-  subnetLoginRequest:
-    type: object
-    properties:
-      username:
-        type: string
-      password:
-        type: string
-      apiKey:
-        type: string
-
-  subnetLoginMFARequest:
-    type: object
-    required:
-      - username
-      - otp
-      - mfa_token
-    properties:
-      username:
-        type: string
-      otp:
-        type: string
-      mfa_token:
-        type: string
-
-  subnetRegisterRequest:
-    type: object
-    required:
-      - token
-      - account_id
-    properties:
-      token:
-        type: string
-      account_id:
-        type: string
-
-  SubnetRegTokenResponse:
-    type: object
-    properties:
-      regToken:
-        type: string
-
-  subnetOrganization:
-    type: object
-    properties:
-      userId:
-        type: integer
-      accountId:
-        type: integer
-      subscriptionStatus:
-        type: string
-      isAccountOwner:
-        type: boolean
-      company:
-        type: string
-      shortName:
-        type: string
-
-  checkVersionResponse:
-    type: object
-    properties:
-      current_version:
-        type: string
-      latest_version:
-        type: string
-
   permissionResource:
     type: object
     properties:
@@ -5702,15 +4551,6 @@ definitions:
     properties:
       key:
         type: string
-  kmsImportKeyRequest:
-    type: object
-    required:
-      - bytes
-    properties:
-      bytes:
-        type: string
-  kmDeleteKeyRequest:
-    type: object
   kmsListKeysResponse:
     type: object
     properties:
@@ -5728,111 +4568,6 @@ definitions:
       createdBy:
         type: string
 
-  kmsGetPolicyResponse:
-    type: object
-    properties:
-      allow:
-        type: array
-        items:
-          type: string
-      deny:
-        type: array
-        items:
-          type: string
-  kmsSetPolicyRequest:
-    type: object
-    required:
-      - policy
-    properties:
-      policy:
-        type: string
-      allow:
-        type: array
-        items:
-          type: string
-      deny:
-        type: array
-        items:
-          type: string
-  kmsDescribePolicyResponse:
-    type: object
-    properties:
-      createdAt:
-        type: string
-      createdBy:
-        type: string
-      name:
-        type: string
-  kmsAssignPolicyRequest:
-    type: object
-    properties:
-      identity:
-        type: string
-  kmsListPoliciesResponse:
-    type: object
-    properties:
-      results:
-        type: array
-        items:
-          $ref: "#/definitions/kmsPolicyInfo"
-  kmsPolicyInfo:
-    type: object
-    properties:
-      name:
-        type: string
-      createdAt:
-        type: string
-      createdBy:
-        type: string
-
-  kmsDescribeIdentityResponse:
-    type: object
-    properties:
-      policy:
-        type: string
-      identity:
-        type: string
-      admin:
-        type: boolean
-      createdAt:
-        type: string
-      createdBy:
-        type: string
-  kmsDescribeSelfIdentityResponse:
-    type: object
-    properties:
-      identity:
-        type: string
-      policyName:
-        type: string
-      admin:
-        type: boolean
-      createdAt:
-        type: string
-      createdBy:
-        type: string
-      policy:
-        $ref: "#/definitions/kmsGetPolicyResponse"
-  kmsListIdentitiesResponse:
-    type: object
-    properties:
-      results:
-        type: array
-        items:
-          $ref: "#/definitions/kmsIdentityInfo"
-  kmsIdentityInfo:
-    type: object
-    properties:
-      identity:
-        type: string
-      policy:
-        type: string
-      error:
-        type: string
-      createdAt:
-        type: string
-      createdBy:
-        type: string
   kmsMetricsResponse:
     type: object
     required:
@@ -6153,3 +4888,17 @@ definitions:
         type: array
         items:
           type: string
+
+  maxShareLinkExpResponse:
+    type: object
+    properties:
+      exp:
+        type: number
+        format: int64
+    required:
+      - exp
+
+  selectedSAs:
+    type: array
+    items:
+      type: string

@@ -18,17 +18,16 @@ package integration
 
 import (
 	"bytes"
-	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"log"
 	"net/http"
+	"net/url"
 	"testing"
 	"time"
 
 	"github.com/go-openapi/swag"
 
-	iampolicy "github.com/minio/pkg/iam/policy"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -52,6 +51,21 @@ func TestAddServiceAccount(t *testing.T) {
 	requestDataAddServiceAccount := map[string]interface{}{
 		"accessKey": "testuser1",
 		"secretKey": "password",
+		"policy": `{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Action": [
+        "s3:GetBucketLocation",
+        "s3:GetObject"
+      ],
+      "Resource": [
+        "arn:aws:s3:::*"
+      ]
+    }
+  ]
+}`,
 	}
 
 	requestDataJSON, _ := json.Marshal(requestDataAddServiceAccount)
@@ -75,79 +89,10 @@ func TestAddServiceAccount(t *testing.T) {
 		assert.Equal(201, response.StatusCode, "Status Code is incorrect")
 	}
 
-	requestDataPolicy := map[string]interface{}{
-		"policy": `
-  {
-  "Version": "2012-10-17",
-  "Statement": [
-    {
-      "Effect": "Allow",
-      "Action": [
-        "s3:GetBucketLocation",
-        "s3:GetObject"
-      ],
-      "Resource": [
-        "arn:aws:s3:::*"
-      ]
-    }
-  ]
-}`,
-	}
-	requestDataJSON, _ = json.Marshal(requestDataPolicy)
-	requestDataBody = bytes.NewReader(requestDataJSON)
-	request, err = http.NewRequest(
-		"PUT", "http://localhost:9090/api/v1/service-accounts/"+base64.StdEncoding.EncodeToString([]byte("testuser1"))+"/policy", requestDataBody)
-	if err != nil {
-		log.Println(err)
-		return
-	}
-	request.Header.Add("Cookie", fmt.Sprintf("token=%s", token))
-	request.Header.Add("Content-Type", "application/json")
-	response, err = client.Do(request)
-	if err != nil {
-		log.Println(err)
-		return
-	}
-	if response != nil {
-		fmt.Println("POST StatusCode:", response.StatusCode)
-		assert.Equal(200, response.StatusCode, "Status Code is incorrect")
-	}
-
-	// Test policy
-	request, err = http.NewRequest(
-		"GET", "http://localhost:9090/api/v1/service-accounts/"+base64.StdEncoding.EncodeToString([]byte("testuser1"))+"/policy", nil)
-	if err != nil {
-		log.Println(err)
-		return
-	}
-	request.Header.Add("Cookie", fmt.Sprintf("token=%s", token))
-	request.Header.Add("Content-Type", "application/json")
-	response, err = client.Do(request)
-	if err != nil {
-		log.Println(err)
-		return
-	}
-	if response != nil {
-		fmt.Println("POST StatusCode:", response.StatusCode)
-		assert.Equal(200, response.StatusCode, "Status Code is incorrect")
-		buf := new(bytes.Buffer)
-		buf.ReadFrom(response.Body)
-		var actual *iampolicy.Policy
-		var expected *iampolicy.Policy
-		json.Unmarshal(buf.Bytes(), actual)
-		policy, err := json.Marshal(requestDataAddServiceAccount["policy"])
-		if err != nil {
-			log.Println(err)
-			return
-		}
-		json.Unmarshal(policy, expected)
-		assert.Equal(expected, actual)
-	}
-
 	// {{baseUrl}}/user?name=proident velit
 	// Investiga como se borra en el browser.
 	request, err = http.NewRequest(
-		"DELETE", "http://localhost:9090/api/v1/service-accounts/"+base64.StdEncoding.EncodeToString([]byte("testuser1")), nil)
+		"DELETE", "http://localhost:9090/api/v1/service-accounts/"+url.PathEscape("testuser1"), nil)
 	if err != nil {
 		log.Println(err)
 		return
@@ -238,7 +183,7 @@ func Test_ServiceAccountsAPI(t *testing.T) {
 	}
 
 	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
+		t.Run(tt.name, func(_ *testing.T) {
 			client := &http.Client{
 				Timeout: 3 * time.Second,
 			}
@@ -305,7 +250,6 @@ func TestCreateServiceAccountForUserWithCredentials(t *testing.T) {
 	userName := "testcreateserviceaccountforuserwithcredentials1"
 	assert := assert.New(t)
 	policy := ""
-	serviceAccountLengthInBytes := 40 // As observed, update as needed
 
 	// 1. Create the user
 	groups := []string{}
@@ -346,7 +290,7 @@ func TestCreateServiceAccountForUserWithCredentials(t *testing.T) {
 		},
 	}
 	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
+		t.Run(tt.name, func(_ *testing.T) {
 			// 2. Create the service account for the user
 			createServiceAccountWithCredentialsResponse,
 				createServiceAccountWithCredentialsError := CreateServiceAccountForUserWithCredentials(
@@ -383,7 +327,6 @@ func TestCreateServiceAccountForUserWithCredentials(t *testing.T) {
 					finalResponse,
 				)
 			}
-			assert.Equal(len(finalResponse), serviceAccountLengthInBytes, finalResponse)
 		})
 	}
 

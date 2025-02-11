@@ -68,6 +68,9 @@ type MultiBucketReplication struct {
 	// replicate deletes
 	ReplicateDeletes bool `json:"replicateDeletes,omitempty"`
 
+	// replicate existing objects
+	ReplicateExistingObjects bool `json:"replicateExistingObjects,omitempty"`
+
 	// replicate metadata
 	ReplicateMetadata bool `json:"replicateMetadata,omitempty"`
 
@@ -80,7 +83,7 @@ type MultiBucketReplication struct {
 	StorageClass string `json:"storageClass,omitempty"`
 
 	// sync mode
-	// Enum: [async sync]
+	// Enum: ["async","sync"]
 	SyncMode *string `json:"syncMode,omitempty"`
 
 	// tags
@@ -244,6 +247,11 @@ func (m *MultiBucketReplication) contextValidateBucketsRelation(ctx context.Cont
 	for i := 0; i < len(m.BucketsRelation); i++ {
 
 		if m.BucketsRelation[i] != nil {
+
+			if swag.IsZero(m.BucketsRelation[i]) { // not required
+				return nil
+			}
+
 			if err := m.BucketsRelation[i].ContextValidate(ctx, formats); err != nil {
 				if ve, ok := err.(*errors.Validation); ok {
 					return ve.ValidateName("bucketsRelation" + "." + strconv.Itoa(i))

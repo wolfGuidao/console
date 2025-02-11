@@ -45,7 +45,7 @@ type LoginDetails struct {
 	IsK8S bool `json:"isK8S,omitempty"`
 
 	// login strategy
-	// Enum: [form redirect service-account redirect-service-account]
+	// Enum: ["form","redirect","service-account","redirect-service-account"]
 	LoginStrategy string `json:"loginStrategy,omitempty"`
 
 	// redirect rules
@@ -163,6 +163,11 @@ func (m *LoginDetails) contextValidateRedirectRules(ctx context.Context, formats
 	for i := 0; i < len(m.RedirectRules); i++ {
 
 		if m.RedirectRules[i] != nil {
+
+			if swag.IsZero(m.RedirectRules[i]) { // not required
+				return nil
+			}
+
 			if err := m.RedirectRules[i].ContextValidate(ctx, formats); err != nil {
 				if ve, ok := err.(*errors.Validation); ok {
 					return ve.ValidateName("redirectRules" + "." + strconv.Itoa(i))
